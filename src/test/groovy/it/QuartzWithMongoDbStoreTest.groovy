@@ -1,6 +1,6 @@
 package it
 
-import com.novemberain.quartz.mongodb.QuartzHelper
+import io.smartspaces.scheduling.quartz.orientdb.QuartzHelper
 import org.quartz.CalendarIntervalScheduleBuilder
 import org.quartz.Job
 import org.quartz.JobBuilder
@@ -21,7 +21,7 @@ import spock.lang.Specification
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicInteger
 
-import static com.novemberain.quartz.mongodb.QuartzHelper.inSeconds
+import static io.smartspaces.scheduling.quartz.orientdb.QuartzHelper.inSeconds
 import static org.quartz.impl.matchers.GroupMatcher.groupEquals
 
 /**

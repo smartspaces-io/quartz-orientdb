@@ -1,7 +1,7 @@
 package it
 
-import com.novemberain.quartz.mongodb.MongoDBJobStore
-import com.novemberain.quartz.mongodb.MongoHelper
+import io.smartspaces.scheduling.quartz.orientdb.MongoDBJobStore
+import io.smartspaces.scheduling.quartz.orientdb.MongoHelper
 import org.bson.Document
 import org.quartz.CalendarIntervalScheduleBuilder
 import org.quartz.CronScheduleBuilder
@@ -20,8 +20,8 @@ import org.quartz.spi.OperableTrigger
 import spock.lang.Specification
 import spock.lang.Subject
 
-import static com.novemberain.quartz.mongodb.QuartzHelper.in2Months
-import static com.novemberain.quartz.mongodb.QuartzHelper.inSeconds
+import static io.smartspaces.scheduling.quartz.orientdb.QuartzHelper.in2Months
+import static io.smartspaces.scheduling.quartz.orientdb.QuartzHelper.inSeconds
 import static org.quartz.DateBuilder.IntervalUnit.*
 import static org.quartz.Trigger.TriggerState.*
 import static org.quartz.Trigger.TriggerState.PAUSED

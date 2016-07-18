@@ -1,52 +1,6 @@
-# A MongoDB-based store for Quartz.
+# A OrientDB-based store for Quartz.
 
-This is a MongoDB-backed job store for the [Quartz scheduler](http://quartz-scheduler.org/).
-
-## Maven Artifacts
-
-Artifacts are released to [clojars.org](http://clojars.org).
-[![Clojars Project](http://clojars.org/com.novemberain/quartz-mongodb/latest-version.svg)](http://clojars.org/com.novemberain/quartz-mongodb)
-
-If you are using Maven, add the following repository
-definition to your `pom.xml`:
-
-``` xml
-<repository>
-  <id>clojars.org</id>
-  <url>http://clojars.org/repo</url>
-</repository>
-```
-
-If you are using Gradle, add the following to your `build.gradle`:
-
-``` groovy
-repositories {
-    maven {
-        url "http://clojars.org/repo"
-    }
-}
-```
-
-
-### The Most Recent Release
-
-With Leiningen:
-
-    [com.novemberain/quartz-mongodb "2.0.0-rc1"]
-
-
-With Maven:
-
-    <dependency>
-      <groupId>com.novemberain</groupId>
-      <artifactId>quartz-mongodb</artifactId>
-      <version>2.0.0-rc1</version>
-    </dependency>
-
-
-With Gradle:
-
-    compile "com.novemberain:quartz-mongodb:2.0.0-rc1"
+This is a OrientDB-backed job store for the [Quartz scheduler](http://quartz-scheduler.org/).
 
 
 ## Usage
@@ -54,7 +8,7 @@ With Gradle:
 Set your Quartz properties to something like this:
 
     # Use the MongoDB store
-    org.quartz.jobStore.class=com.novemberain.quartz.mongodb.MongoDBJobStore
+    org.quartz.jobStore.classpaces=io.smartspaces.scheduling.quartz.orientdb.OrientDBJobStore
     # MongoDB URI (optional if 'org.quartz.jobStore.addresses' is set)
     org.quartz.jobStore.mongoUri=mongodb://localhost:27020
     # comma separated list of mongodb hosts/replica set seeds (optional if 'org.quartz.jobStore.mongoUri' is set)
@@ -66,12 +20,6 @@ Set your Quartz properties to something like this:
     # thread count setting is ignored by the MongoDB store but Quartz requries it
     org.quartz.threadPool.threadCount=1
 
-If you use [Quartzite](http://clojurequartz.info) or want your job classes to be available
-to Clojure code, use:
-
-    org.quartz.jobStore.class=com.novemberain.quartz.mongodb.DynamicMongoDBJobStore
-
-(this assumes Clojure jar is on classpath).
 
 ## Clustering
 
@@ -115,32 +63,19 @@ Different time settings for cluster operations:
     # Defaults to 5000 ms.
     org.quartz.scheduler.mongoOptionWriteConcernTimeoutMillis=10000
 
-## Continuous Integration
-
-[![Build Status](https://secure.travis-ci.org/michaelklishin/quartz-mongodb.png?branch=master)](http://travis-ci.org/michaelklishin/quartz-mongodb)
-
-CI is hosted by [Travis CI](http://travis-ci.org/)
-
 
 ## Copyright & License
 
-(c) Michael S. Klishin, Alex Petrov, 2011-2015.
+(c) Keith M. Hughes, 2016.
 
 [Apache Public License 2.0](http://www.apache.org/licenses/LICENSE-2.0.html)
+
+Forked from code (c) Michael S. Klishin, Alex Petrov, 2011-2015.
+Forked from code from MuleSoft.
 
 
 ## FAQ
 
 ### Project Origins
 
-The project was originally started by MuleSoft. It supports all Quartz trigger types and
-tries to be as feature complete as possible.
-
-### Why the Fork?
-
-MuleSoft developers did not respond to attempts to submit pull
-requests for several months. As more and more functionality was added
-and implementation code refactored, I decided to completely separate
-this fork form GitHub forks network because the project is now too
-different from the original one. All changes were made with respect to
-the Apache Public License 2.0.
+The project was originally started by MuleSoft to support MongoDB. It was then forked by Michael S. Klishin and Alex Petrov to support all Quartz trigger types and tries to be as feature complete as possible for MongoDB. An OrientDB Quartz JobStore was needed for OrientDB and the basic concepts of OrientDB are close to MongoDB to start from MongoDB code.

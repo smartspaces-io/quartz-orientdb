@@ -7,9 +7,10 @@ buildscript {
 apply plugin: 'java'
 apply plugin: 'groovy'
 apply plugin: 'idea'
+apply plugin: 'eclipse'
 
 jar {
-    baseName = 'quartz-mongodb'
+    baseName = 'quartz-orientdb'
     version =  '2.0.0-rc2-SNAPSHOT'
 }
 
@@ -49,5 +50,5 @@ dependencies {
 }
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '2.13'
+    gradleVersion = '2.14'
 }
