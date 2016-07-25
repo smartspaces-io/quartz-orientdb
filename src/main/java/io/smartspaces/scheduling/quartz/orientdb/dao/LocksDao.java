@@ -1,13 +1,41 @@
+/*
+ * Copyright (C) 2016 Keith M. Hughes
+ * Forked from code (c) Michael S. Klishin, Alex Petrov, 2011-2015.
+ * Forked from code from MuleSoft.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package io.smartspaces.scheduling.quartz.orientdb.dao;
 
-import com.mongodb.MongoException;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.model.Filters;
-import com.mongodb.client.model.IndexOptions;
-import com.mongodb.client.model.Projections;
-import com.mongodb.client.result.UpdateResult;
+import static io.smartspaces.scheduling.quartz.orientdb.Constants.LOCK_INSTANCE_ID;
+import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.KEY_AND_GROUP_FIELDS;
+import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.KEY_GROUP;
+import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.KEY_NAME;
+import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.LOCK_TYPE;
+import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.createJobLock;
+import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.createJobLockFilter;
+import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.createLockUpdateDocument;
+import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.createRelockFilter;
+import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.createTriggerLock;
+import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.createTriggerLockFilter;
+import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.createTriggersLocksFilter;
+import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.toFilter;
+import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.toTriggerKey;
 
-import io.smartspaces.scheduling.quartz.orientdb.util.Clock;
+import java.util.Date;
+import java.util.LinkedList;
+import java.util.List;
 
 import org.bson.Document;
 import org.bson.conversions.Bson;
@@ -19,12 +47,15 @@ import org.quartz.spi.OperableTrigger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static io.smartspaces.scheduling.quartz.orientdb.Constants.LOCK_INSTANCE_ID;
-import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.*;
+import com.mongodb.MongoException;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.IndexOptions;
+import com.mongodb.client.model.Projections;
+import com.mongodb.client.result.UpdateResult;
+import com.orientechnologies.orient.core.record.impl.ODocument;
 
-import java.util.Date;
-import java.util.LinkedList;
-import java.util.List;
+import io.smartspaces.scheduling.quartz.orientdb.util.Clock;
 
 public class LocksDao {
 
@@ -63,12 +94,12 @@ public class LocksDao {
         locksCollection.dropIndex(KEY_AND_GROUP_FIELDS);
     }
 
-    public Document findJobLock(JobKey job) {
+    public ODocument findJobLock(JobKey job) {
         Bson filter = createJobLockFilter(job);
         return locksCollection.find(filter).first();
     }
 
-    public Document findTriggerLock(TriggerKey trigger) {
+    public ODocument findTriggerLock(TriggerKey trigger) {
         Bson filter = createTriggerLockFilter(trigger);
         return locksCollection.find(filter).first();
     }
@@ -151,7 +182,7 @@ public class LocksDao {
         return false;
     }
 
-    public void remove(Document lock) {
+    public void remove(ODocument lock) {
         locksCollection.deleteMany(lock);
     }
 

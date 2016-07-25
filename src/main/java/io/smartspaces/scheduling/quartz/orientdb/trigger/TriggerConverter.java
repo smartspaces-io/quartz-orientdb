@@ -1,5 +1,10 @@
 package io.smartspaces.scheduling.quartz.orientdb.trigger;
 
+import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.KEY_GROUP;
+import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.KEY_NAME;
+
+import java.io.IOException;
+
 import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.quartz.Job;
@@ -10,14 +15,29 @@ import org.quartz.spi.OperableTrigger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.orientechnologies.orient.core.record.impl.ODocument;
+
 import io.smartspaces.scheduling.quartz.orientdb.Constants;
 import io.smartspaces.scheduling.quartz.orientdb.dao.JobDao;
-import io.smartspaces.scheduling.quartz.orientdb.util.*;
+import io.smartspaces.scheduling.quartz.orientdb.util.SerialUtils;
 
-import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.KEY_GROUP;
-import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.KEY_NAME;
-
-import java.io.IOException;
+/*
+ * Copyright (C) 2016 Keith M. Hughes
+ * Forked from code (c) Michael S. Klishin, Alex Petrov, 2011-2015.
+ * Forked from code from MuleSoft.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 
 public class TriggerConverter {
 
@@ -40,13 +60,13 @@ public class TriggerConverter {
         this.jobDao = jobDao;
     }
 
-    public Document toDocument(OperableTrigger newTrigger, ObjectId jobId)
+    public ODocument toDocument(OperableTrigger newTrigger, ObjectId jobId)
             throws JobPersistenceException {
-        Document trigger = convertToBson(newTrigger, jobId);
+        ODocument trigger = convertToBson(newTrigger, jobId);
         if (newTrigger.getJobDataMap().size() > 0) {
             try {
                 String jobDataString = SerialUtils.serialize(newTrigger.getJobDataMap());
-                trigger.put(Constants.JOB_DATA, jobDataString);
+                trigger.field(Constants.JOB_DATA, jobDataString);
             } catch (IOException ioe) {
                 throw new JobPersistenceException("Could not serialise job data map on the trigger for "
                         + newTrigger.getKey(), ioe);
@@ -95,23 +115,23 @@ public class TriggerConverter {
         return toTrigger(key, doc);
     }
 
-    private Document convertToBson(OperableTrigger newTrigger, ObjectId jobId) {
-        Document trigger = new Document();
-        trigger.put(Constants.TRIGGER_STATE, Constants.STATE_WAITING);
-        trigger.put(TRIGGER_CALENDAR_NAME, newTrigger.getCalendarName());
-        trigger.put(TRIGGER_CLASS, newTrigger.getClass().getName());
-        trigger.put(TRIGGER_DESCRIPTION, newTrigger.getDescription());
-        trigger.put(TRIGGER_END_TIME, newTrigger.getEndTime());
-        trigger.put(TRIGGER_FINAL_FIRE_TIME, newTrigger.getFinalFireTime());
-        trigger.put(TRIGGER_FIRE_INSTANCE_ID, newTrigger.getFireInstanceId());
-        trigger.put(Constants.TRIGGER_JOB_ID, jobId);
-        trigger.put(KEY_NAME, newTrigger.getKey().getName());
-        trigger.put(KEY_GROUP, newTrigger.getKey().getGroup());
-        trigger.put(TRIGGER_MISFIRE_INSTRUCTION, newTrigger.getMisfireInstruction());
-        trigger.put(Constants.TRIGGER_NEXT_FIRE_TIME, newTrigger.getNextFireTime());
-        trigger.put(TRIGGER_PREVIOUS_FIRE_TIME, newTrigger.getPreviousFireTime());
-        trigger.put(TRIGGER_PRIORITY, newTrigger.getPriority());
-        trigger.put(TRIGGER_START_TIME, newTrigger.getStartTime());
+    private ODocument convertToBson(OperableTrigger newTrigger, ObjectId jobId) {
+        ODocument trigger = new Document();
+        trigger.field(Constants.TRIGGER_STATE, Constants.STATE_WAITING);
+        trigger.field(TRIGGER_CALENDAR_NAME, newTrigger.getCalendarName());
+        trigger.field(TRIGGER_CLASS, newTrigger.getClass().getName());
+        trigger.field(TRIGGER_DESCRIPTION, newTrigger.getDescription());
+        trigger.field(TRIGGER_END_TIME, newTrigger.getEndTime());
+        trigger.field(TRIGGER_FINAL_FIRE_TIME, newTrigger.getFinalFireTime());
+        trigger.field(TRIGGER_FIRE_INSTANCE_ID, newTrigger.getFireInstanceId());
+        trigger.field(Constants.TRIGGER_JOB_ID, jobId);
+        trigger.field(KEY_NAME, newTrigger.getKey().getName());
+        trigger.field(KEY_GROUP, newTrigger.getKey().getGroup());
+        trigger.field(TRIGGER_MISFIRE_INSTRUCTION, newTrigger.getMisfireInstruction());
+        trigger.field(Constants.TRIGGER_NEXT_FIRE_TIME, newTrigger.getNextFireTime());
+        trigger.field(TRIGGER_PREVIOUS_FIRE_TIME, newTrigger.getPreviousFireTime());
+        trigger.field(TRIGGER_PRIORITY, newTrigger.getPriority());
+        trigger.field(TRIGGER_START_TIME, newTrigger.getStartTime());
         return trigger;
     }
 

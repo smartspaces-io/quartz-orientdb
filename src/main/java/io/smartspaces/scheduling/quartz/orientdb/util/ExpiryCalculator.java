@@ -1,14 +1,16 @@
 package io.smartspaces.scheduling.quartz.orientdb.util;
 
+import java.util.Date;
+
 import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.orientechnologies.orient.core.record.impl.ODocument;
+
 import io.smartspaces.scheduling.quartz.orientdb.Constants;
 import io.smartspaces.scheduling.quartz.orientdb.cluster.Scheduler;
 import io.smartspaces.scheduling.quartz.orientdb.dao.SchedulerDao;
-
-import java.util.Date;
 
 public class ExpiryCalculator {
 
@@ -27,12 +29,12 @@ public class ExpiryCalculator {
         this.triggerTimeoutMillis = triggerTimeoutMillis;
     }
 
-    public boolean isJobLockExpired(Document lock) {
+    public boolean isJobLockExpired(ODocument lock) {
         return isLockExpired(lock, jobTimeoutMillis);
     }
 
-    public boolean isTriggerLockExpired(Document lock) {
-        String schedulerId = lock.getString(Constants.LOCK_INSTANCE_ID);
+    public boolean isTriggerLockExpired(ODocument lock) {
+        String schedulerId = lock.field(Constants.LOCK_INSTANCE_ID);
         return isLockExpired(lock, triggerTimeoutMillis) && hasDefunctScheduler(schedulerId);
     }
 
@@ -45,8 +47,8 @@ public class ExpiryCalculator {
         return scheduler.isDefunct(clock.millis()) && schedulerDao.isNotSelf(scheduler);
     }
 
-    private boolean isLockExpired(Document lock, long timeoutMillis) {
-        Date lockTime = lock.getDate(Constants.LOCK_TIME);
+    private boolean isLockExpired(ODocument lock, long timeoutMillis) {
+        Date lockTime = lock.field(Constants.LOCK_TIME);
         long elapsedTime = clock.millis() - lockTime.getTime();
         return (elapsedTime > timeoutMillis);
     }

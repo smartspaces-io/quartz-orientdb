@@ -41,6 +41,8 @@ dependencies {
     compile("commons-codec:commons-codec:1.10")
     compile("org.slf4j:slf4j-api:1.7.10")
     provided("org.clojure:clojure:1.7.0")
+	
+    compile fileTree(dir: 'jars', include: '*.jar') 
 
     testCompile("org.slf4j:slf4j-simple:1.7.10")
     testCompile("org.codehaus.groovy:groovy-all:2.4.1")

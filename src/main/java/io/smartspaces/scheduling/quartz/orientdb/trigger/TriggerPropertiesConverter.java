@@ -1,15 +1,35 @@
+/*
+ * Copyright (C) 2016 Keith M. Hughes
+ * Forked from code (c) Michael S. Klishin, Alex Petrov, 2011-2015.
+ * Forked from code from MuleSoft.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package io.smartspaces.scheduling.quartz.orientdb.trigger;
+
+import java.util.Arrays;
+import java.util.List;
 
 import org.bson.Document;
 import org.quartz.spi.OperableTrigger;
+
+import com.orientechnologies.orient.core.record.impl.ODocument;
 
 import io.smartspaces.scheduling.quartz.orientdb.trigger.properties.CalendarIntervalTriggerPropertiesConverter;
 import io.smartspaces.scheduling.quartz.orientdb.trigger.properties.CronTriggerPropertiesConverter;
 import io.smartspaces.scheduling.quartz.orientdb.trigger.properties.DailyTimeIntervalTriggerPropertiesConverter;
 import io.smartspaces.scheduling.quartz.orientdb.trigger.properties.SimpleTriggerPropertiesConverter;
-
-import java.util.Arrays;
-import java.util.List;
 
 /**
  * Converts trigger type specific properties.
@@ -38,7 +58,7 @@ public abstract class TriggerPropertiesConverter {
 
     protected abstract boolean canHandle(OperableTrigger trigger);
 
-    public abstract Document injectExtraPropertiesForInsert(OperableTrigger trigger, Document original);
+    public abstract Document injectExtraPropertiesForInsert(OperableTrigger trigger, ODocument original);
 
-    public abstract void setExtraPropertiesAfterInstantiation(OperableTrigger trigger, Document stored);
+    public abstract void setExtraPropertiesAfterInstantiation(OperableTrigger trigger, ODocument stored);
 }

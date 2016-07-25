@@ -1,6 +1,6 @@
 package it
 
-import io.smartspaces.scheduling.quartz.orientdb.MongoDBJobStore
+import io.smartspaces.scheduling.quartz.orientdb.OrientDbJobStore
 import io.smartspaces.scheduling.quartz.orientdb.MongoHelper
 import org.bson.Document
 import org.quartz.CalendarIntervalScheduleBuilder
@@ -610,7 +610,7 @@ class MongoDBJobStoreTest extends Specification {
     }
 
     def makeStore() {
-        def store = new MongoDBJobStore(
+        def store = new OrientDbJobStore(
                 instanceName: 'quartz_mongodb_test',
                 dbName: 'quartz_mongodb_test',
                 addresses: '127.0.0.1')
