@@ -21,7 +21,6 @@ package io.smartspaces.scheduling.quartz.orientdb.trigger;
 import java.util.Arrays;
 import java.util.List;
 
-import org.bson.Document;
 import org.quartz.spi.OperableTrigger;
 
 import com.orientechnologies.orient.core.record.impl.ODocument;
@@ -58,7 +57,7 @@ public abstract class TriggerPropertiesConverter {
 
     protected abstract boolean canHandle(OperableTrigger trigger);
 
-    public abstract Document injectExtraPropertiesForInsert(OperableTrigger trigger, ODocument original);
+    public abstract ODocument injectExtraPropertiesForInsert(OperableTrigger trigger, ODocument original);
 
     public abstract void setExtraPropertiesAfterInstantiation(OperableTrigger trigger, ODocument stored);
 }

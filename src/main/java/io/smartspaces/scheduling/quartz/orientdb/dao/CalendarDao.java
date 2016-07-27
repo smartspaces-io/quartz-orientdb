@@ -18,28 +18,29 @@
 
 package io.smartspaces.scheduling.quartz.orientdb.dao;
 
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.model.Filters;
-import com.mongodb.client.model.IndexOptions;
-import com.mongodb.client.model.Projections;
-
-import io.smartspaces.scheduling.quartz.orientdb.util.SerialUtils;
-
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.bson.types.Binary;
 import org.quartz.Calendar;
 import org.quartz.JobPersistenceException;
 
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.IndexOptions;
+import com.mongodb.client.model.Projections;
+
+import io.smartspaces.scheduling.quartz.orientdb.db.StandardOrientDbConnector;
+import io.smartspaces.scheduling.quartz.orientdb.util.SerialUtils;
+
 public class CalendarDao {
 
     static final String CALENDAR_NAME = "name";
     static final String CALENDAR_SERIALIZED_OBJECT = "serializedObject";
 
-    private final MongoCollection<Document> calendarCollection;
+    private final StandardOrientDbConnector orientDbConnection;
 
-    public CalendarDao(MongoCollection<Document> calendarCollection) {
-        this.calendarCollection = calendarCollection;
+    public CalendarDao(StandardOrientDbConnector orientDbConnection) {
+        this.orientDbConnection = orientDbConnection;
     }
 
     public void clear() {

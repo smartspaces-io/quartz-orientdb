@@ -37,135 +37,149 @@ import org.quartz.ObjectAlreadyExistsException;
 import org.quartz.impl.matchers.GroupMatcher;
 
 import com.mongodb.MongoWriteException;
-import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
-import com.mongodb.client.result.DeleteResult;
+import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
+import com.orientechnologies.orient.core.id.ORID;
 import com.orientechnologies.orient.core.record.impl.ODocument;
+import com.orientechnologies.orient.core.sql.query.OSQLSynchQuery;
 
 import io.smartspaces.scheduling.quartz.orientdb.JobConverter;
+import io.smartspaces.scheduling.quartz.orientdb.StandardOrientDbStoreAssembler;
 import io.smartspaces.scheduling.quartz.orientdb.util.GroupHelper;
 import io.smartspaces.scheduling.quartz.orientdb.util.Keys;
 import io.smartspaces.scheduling.quartz.orientdb.util.QueryHelper;
 
 public class JobDao {
 
-	private final MongoCollection<Document> jobCollection;
-	private final QueryHelper queryHelper;
-	private final GroupHelper groupHelper;
-	private final JobConverter jobConverter;
+  private final StandardOrientDbStoreAssembler storeAssembler;
+  private final QueryHelper queryHelper;
+  private final GroupHelper groupHelper;
+  private final JobConverter jobConverter;
 
-	public JobDao(MongoCollection<Document> jobCollection, QueryHelper queryHelper, JobConverter jobConverter) {
-		this.jobCollection = jobCollection;
-		this.queryHelper = queryHelper;
-		this.groupHelper = new GroupHelper(jobCollection, queryHelper);
-		this.jobConverter = jobConverter;
-	}
+  public JobDao(StandardOrientDbStoreAssembler assembler, QueryHelper queryHelper,
+      JobConverter jobConverter) {
+    this.queryHelper = queryHelper;
+    this.groupHelper = new GroupHelper(jobCollection, queryHelper);
+    this.jobConverter = jobConverter;
+  }
 
-	public MongoCollection<Document> getCollection() {
-		return jobCollection;
-	}
+  public void clear() {
+    ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
+    for (ODocument job : database.browseClass("Job")) {
+      job.delete();
+    }
+  }
 
-	public DeleteResult clear() {
-		return jobCollection.deleteMany(new Document());
-	}
+  public void createIndex() {
+    jobCollection.createIndex(Keys.KEY_AND_GROUP_FIELDS, new IndexOptions().unique(true));
+  }
 
-	public void createIndex() {
-		jobCollection.createIndex(Keys.KEY_AND_GROUP_FIELDS, new IndexOptions().unique(true));
-	}
+  public void dropIndex() {
+    jobCollection.dropIndex("keyName_1_keyGroup_1");
+  }
 
-	public void dropIndex() {
-		jobCollection.dropIndex("keyName_1_keyGroup_1");
-	}
+  public boolean exists(JobKey jobKey) {
+    return !getJobsByKey(jobKey).isEmpty();
+  }
 
-	public boolean exists(JobKey jobKey) {
-		return jobCollection.count(Keys.toFilter(jobKey)) > 0;
-	}
+  public ODocument getById(Object id) {
+    return jobCollection.find(Filters.eq("_id", id)).first();
+  }
 
-	public Document getById(Object id) {
-		return jobCollection.find(Filters.eq("_id", id)).first();
-	}
+  public ODocument getJob(JobKey jobKey) {
+    List<ODocument> result = getJobsByKey(jobKey);
+      
+    if (result.isEmpty()) {
+      return null;
+    } else {
+    return result.get(0);
+    }
+  }
 
-	public ODocument getJob(Bson keyObject) {
-		return jobCollection.find(keyObject).first();
-	}
+  private List<ODocument> getJobsByKey(JobKey jobKey) {
+    // TODO(keith): class and field names should come from external constants
+    // Also create query ahead of time when DAO starts.
+    OSQLSynchQuery<ODocument> query = new OSQLSynchQuery<ODocument>("select from Job where keyGroup=? and keyName=?");
+    ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
+    List<ODocument> result = database.command(query).execute(jobKey.getGroup(), jobKey.getName());
+    return result;
+  }
 
-	public ODocument getJob(JobKey key) {
-		return getJob(toFilter(key));
-	}
+  public int getCount() {
+    ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
+    return  (int)database.countClass("Job");
+  }
 
-	public int getCount() {
-		return (int) jobCollection.count();
-	}
+  public List<String> getGroupNames() {
+    return jobCollection.distinct(KEY_GROUP, String.class).into(new ArrayList<String>());
+  }
 
-	public List<String> getGroupNames() {
-		return jobCollection.distinct(KEY_GROUP, String.class).into(new ArrayList<String>());
-	}
+  public Set<JobKey> getJobKeys(GroupMatcher<JobKey> matcher) {
+    Set<JobKey> keys = new HashSet<JobKey>();
+    Bson query = queryHelper.matchingKeysConditionFor(matcher);
+    for (Document doc : jobCollection.find(query).projection(Keys.KEY_AND_GROUP_FIELDS)) {
+      keys.add(Keys.toJobKey(doc));
+    }
+    return keys;
+  }
 
-	public Set<JobKey> getJobKeys(GroupMatcher<JobKey> matcher) {
-		Set<JobKey> keys = new HashSet<JobKey>();
-		Bson query = queryHelper.matchingKeysConditionFor(matcher);
-		for (Document doc : jobCollection.find(query).projection(Keys.KEY_AND_GROUP_FIELDS)) {
-			keys.add(Keys.toJobKey(doc));
-		}
-		return keys;
-	}
+  public Collection<ORID> idsOfMatching(GroupMatcher<JobKey> matcher) {
+    List<ORID> list = new ArrayList<>();
+    for (ODocument doc : findMatching(matcher)) {
+      list.add(doc.getIdentity());
+    }
+    return list;
+  }
 
-	public Collection<ObjectId> idsOfMatching(GroupMatcher<JobKey> matcher) {
-		List<ObjectId> list = new ArrayList<ObjectId>();
-		for (Document doc : findMatching(matcher)) {
-			list.add(doc.getObjectId("_id"));
-		}
-		return list;
-	}
+  public void remove(Bson keyObject) {
+    jobCollection.deleteMany(keyObject);
+  }
 
-	public void remove(Bson keyObject) {
-		jobCollection.deleteMany(keyObject);
-	}
+  public boolean requestsRecovery(JobKey jobKey) {
+    // TODO check if it's the same as getJobDataMap?
+    ODocument jobDoc = getJob(jobKey);
+    return jobDoc.getBoolean(JobConverter.JOB_REQUESTS_RECOVERY, false);
+  }
 
-	public boolean requestsRecovery(JobKey jobKey) {
-		// TODO check if it's the same as getJobDataMap?
-		ODocument jobDoc = getJob(jobKey);
-		return jobDoc.getBoolean(JobConverter.JOB_REQUESTS_RECOVERY, false);
-	}
+  public JobDetail retrieveJob(JobKey jobKey) throws JobPersistenceException {
+    ODocument doc = getJob(jobKey);
+    if (doc == null) {
+      // Return null if job does not exist, per interface
+      return null;
+    }
+    return jobConverter.toJobDetail(doc);
+  }
 
-	public JobDetail retrieveJob(JobKey jobKey) throws JobPersistenceException {
-		ODocument doc = getJob(jobKey);
-		if (doc == null) {
-			// Return null if job does not exist, per interface
-			return null;
-		}
-		return jobConverter.toJobDetail(doc);
-	}
+  public ORID storeJobInMongo(JobDetail newJob, boolean replaceExisting)
+      throws ObjectAlreadyExistsException {
+    JobKey key = newJob.getKey();
 
-	public ObjectId storeJobInMongo(JobDetail newJob, boolean replaceExisting) throws ObjectAlreadyExistsException {
-		JobKey key = newJob.getKey();
 
-		Bson keyDbo = toFilter(key);
-		ODocument job = jobConverter.toDocument(newJob, key);
+    ODocument job = jobConverter.toDocument(newJob, key);
+ 
+    ODocument object = getJob(key);
 
-		ODocument object = getJob(keyDbo);
+    ObjectId objectId = null;
+    if (object != null && replaceExisting) {
+      jobCollection.replaceOne(keyDbo, job);
+    } else if (object == null) {
+      try {
+        jobCollection.insertOne(job);
+        objectId = job.getObjectId("_id");
+      } catch (MongoWriteException e) {
+        // Fine, find it and get its id.
+        object = getJob(keyDbo);
+        objectId = object.getObjectId("_id");
+      }
+    } else {
+      objectId = object.getObjectId("_id");
+    }
 
-		ObjectId objectId = null;
-		if (object != null && replaceExisting) {
-			jobCollection.replaceOne(keyDbo, job);
-		} else if (object == null) {
-			try {
-				jobCollection.insertOne(job);
-				objectId = job.getObjectId("_id");
-			} catch (MongoWriteException e) {
-				// Fine, find it and get its id.
-				object = getJob(keyDbo);
-				objectId = object.getObjectId("_id");
-			}
-		} else {
-			objectId = object.getObjectId("_id");
-		}
+    return objectId;
+  }
 
-		return objectId;
-	}
-
-	private Collection<Document> findMatching(GroupMatcher<JobKey> matcher) {
-		return groupHelper.inGroupsThatMatch(matcher);
-	}
+  private Collection<Document> findMatching(GroupMatcher<JobKey> matcher) {
+    return groupHelper.inGroupsThatMatch(matcher);
+  }
 }

@@ -145,7 +145,7 @@ public class OrientDbJobStore implements JobStore, Constants {
   @Override
   public void shutdown() {
     assembler.checkinExecutor.shutdown();
-    assembler.orientdbConnector.shutdown();
+    assembler.orientDbConnector.shutdown();
   }
 
   @Override
@@ -192,7 +192,7 @@ public class OrientDbJobStore implements JobStore, Constants {
 
   @Override
   public void storeJob(JobDetail newJob, boolean replaceExisting) throws JobPersistenceException {
-    assembler.jobDao.storeJobInMongo(newJob, replaceExisting);
+    assembler.getJobDao().storeJobInMongo(newJob, replaceExisting);
   }
 
   @Override

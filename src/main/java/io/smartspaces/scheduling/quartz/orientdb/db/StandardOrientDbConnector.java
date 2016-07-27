@@ -2,7 +2,6 @@ package io.smartspaces.scheduling.quartz.orientdb.db;
 
 import org.quartz.SchedulerConfigException;
 
-import com.mongodb.MongoClientOptions;
 import com.orientechnologies.orient.core.db.OPartitionedDatabasePool;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 
@@ -16,13 +15,19 @@ public class StandardOrientDbConnector {
     return new OrientDbConnectorBuilder();
   }
 
+  /**
+   * The pool of database connections.
+   */
   private OPartitionedDatabasePool pool;
 
+  /**
+   * The thread local that will provide the database connection.
+   */
   private final ThreadLocal<ODatabaseDocumentTx> documentProvider =
       new ThreadLocal<ODatabaseDocumentTx>() {
         @Override
         protected ODatabaseDocumentTx initialValue() {
-          return pool.acquire();
+          return newConnection();
         }
       };
 
@@ -40,32 +45,34 @@ public class StandardOrientDbConnector {
     pool.close();
   }
 
-  //public MongoDatabase selectDatabase(String dbName) {
-  //  return mongo.getDatabase(dbName);
-  //}
+  /**
+   * Get a new connection to the database.
+   * 
+   * @return the new connection
+   */
+  private ODatabaseDocumentTx newConnection() {
+    return pool.acquire();
+  }
 
   /**
    * Get the connection to the database.
    * 
    * <p>
-   * The first time the connection is obtained in a thread, a transaction will be started.
+   * The first time the connection is obtained in a thread, a transaction will
+   * be started.
    * 
    * @return the connection
    */
   public ODatabaseDocumentTx getConnection() {
     return documentProvider.get();
   }
-  
-  public voif
 
   public static class OrientDbConnectorBuilder {
     private StandardOrientDbConnector connector = new StandardOrientDbConnector();
-    private MongoClientOptions.Builder optionsBuilder = MongoClientOptions.builder();
 
     private String orientdbUri;
     private String username;
     private String password;
-    private String[] addresses;
     private String dbName;
     private String authDbName;
     private int writeTimeout;
@@ -91,24 +98,19 @@ public class StandardOrientDbConnector {
       return this;
     }
 
-    public OrientDbConnectorBuilder withAddresses(String[] addresses) {
-      this.addresses = addresses;
-      return this;
-    }
-
     private void connect() throws SchedulerConfigException {
       if (connector.pool == null) {
-        initializeMongo();
+        initializeOrientDb();
       } else {
-        if (orientdbUri != null || username != null || password != null || addresses != null) {
+        if (orientdbUri != null || username != null || password != null) {
           throw new SchedulerConfigException(
-              "Configure either a Mongo instance or MongoDB connection parameters.");
+              "Configure either a OrientDB instance or OrientDB connection parameters.");
         }
       }
     }
 
-    private void initializeMongo() throws SchedulerConfigException {
-      connector.pool = connectToMongoDB();
+    private void initializeOrientDb() throws SchedulerConfigException {
+      connector.pool = connectToOrientDb();
       if (connector.pool == null) {
         throw new SchedulerConfigException(
             "Could not connect to MongoDB! Please check that quartz-mongodb configuration is correct.");
@@ -116,14 +118,14 @@ public class StandardOrientDbConnector {
       setWriteConcern();
     }
 
-    private OPartitionedDatabasePool connectToMongoDB() throws SchedulerConfigException {
-      if (orientdbUri == null && (addresses == null || addresses.length == 0)) {
+    private OPartitionedDatabasePool connectToOrientDb() throws SchedulerConfigException {
+      if (orientdbUri == null) {
         throw new SchedulerConfigException(
-            "At least one MongoDB address or a MongoDB URI must be specified .");
+            "At least one OrientDB address or a OrientDB URI must be specified .");
       }
 
       if (orientdbUri != null) {
-        return connectToMongoDB(orientdbUri);
+        return connectToOrientDB(orientdbUri);
       }
 
       // return createClient();
@@ -137,7 +139,8 @@ public class StandardOrientDbConnector {
     // try {
     // return new MongoClient(serverAddresses, credentials, options);
     // } catch (MongoException e) {
-    // throw new SchedulerConfigException("Could not connect to MongoDB", e);
+
+    // throw new SchedulerConfigExceDption("Could not connect to MongoDB", e);
     // }
     // }
     //
@@ -172,7 +175,7 @@ public class StandardOrientDbConnector {
     // return serverAddresses;
     // }
 
-    private OPartitionedDatabasePool connectToMongoDB(final String orientdbUriAsString)
+    private OPartitionedDatabasePool connectToOrientDB(String orientdbUriAsString)
         throws SchedulerConfigException {
       try {
         return new OPartitionedDatabasePool(orientdbUri, username, password);
@@ -207,28 +210,28 @@ public class StandardOrientDbConnector {
 
     public OrientDbConnectorBuilder withMaxConnectionsPerHost(Integer maxConnectionsPerHost) {
       if (maxConnectionsPerHost != null) {
-        optionsBuilder.connectionsPerHost(maxConnectionsPerHost);
+        // optionsBuilder.connectionsPerHost(maxConnectionsPerHost);
       }
       return this;
     }
 
     public OrientDbConnectorBuilder withConnectTimeoutMillis(Integer connectTimeoutMillis) {
       if (connectTimeoutMillis != null) {
-        optionsBuilder.connectTimeout(connectTimeoutMillis);
+        // optionsBuilder.connectTimeout(connectTimeoutMillis);
       }
       return this;
     }
 
     public OrientDbConnectorBuilder withSocketTimeoutMillis(Integer socketTimeoutMillis) {
       if (socketTimeoutMillis != null) {
-        optionsBuilder.socketTimeout(socketTimeoutMillis);
+        // optionsBuilder.socketTimeout(socketTimeoutMillis);
       }
       return this;
     }
 
     public OrientDbConnectorBuilder withSocketKeepAlive(Boolean socketKeepAlive) {
       if (socketKeepAlive != null) {
-        optionsBuilder.socketKeepAlive(socketKeepAlive);
+        // optionsBuilder.socketKeepAlive(socketKeepAlive);
       }
       return this;
     }
@@ -236,17 +239,17 @@ public class StandardOrientDbConnector {
     public OrientDbConnectorBuilder withThreadsAllowedToBlockForConnectionMultiplier(
         Integer threadsAllowedToBlockForConnectionMultiplier) {
       if (threadsAllowedToBlockForConnectionMultiplier != null) {
-        optionsBuilder.threadsAllowedToBlockForConnectionMultiplier(
-            threadsAllowedToBlockForConnectionMultiplier);
+        // optionsBuilder.threadsAllowedToBlockForConnectionMultiplier(
+        // threadsAllowedToBlockForConnectionMultiplier);
       }
       return this;
     }
 
     public OrientDbConnectorBuilder withSSL(Boolean enableSSL, Boolean sslInvalidHostNameAllowed) {
       if (enableSSL != null) {
-        optionsBuilder.sslEnabled(enableSSL);
+        // optionsBuilder.sslEnabled(enableSSL);
         if (sslInvalidHostNameAllowed != null) {
-          optionsBuilder.sslInvalidHostNameAllowed(sslInvalidHostNameAllowed);
+          // optionsBuilder.sslInvalidHostNameAllowed(sslInvalidHostNameAllowed);
         }
       }
       return this;

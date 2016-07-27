@@ -149,7 +149,7 @@ public class TriggerAndJobPersister {
 	private void removeOrphanedJob(Document trigger) {
 		if (trigger.containsKey(Constants.TRIGGER_JOB_ID)) {
 			// There is only 1 job per trigger so no need to look further.
-			Document job = jobDao.getById(trigger.get(Constants.TRIGGER_JOB_ID));
+			ODocument job = jobDao.getById(trigger.get(Constants.TRIGGER_JOB_ID));
 			if (isOrphan(job)) {
 				jobDao.remove(job);
 			}

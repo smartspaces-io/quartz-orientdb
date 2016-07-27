@@ -46,7 +46,7 @@ import io.smartspaces.scheduling.quartz.orientdb.util.QueryHelper;
 
 public class StandardOrientDbStoreAssembler {
 
-  public StandardOrientDbConnector orientdbConnector;
+  public StandardOrientDbConnector orientDbConnector;
   public JobCompleteHandler jobCompleteHandler;
   public LockManager lockManager;
   public TriggerStateManager triggerStateManager;
@@ -64,15 +64,14 @@ public class StandardOrientDbStoreAssembler {
   public TriggerRecoverer triggerRecoverer;
   public CheckinExecutor checkinExecutor;
 
-  private MongoDatabase db;
   private QueryHelper queryHelper = new QueryHelper();
   private TriggerConverter triggerConverter;
 
   public void build(OrientDbJobStore jobStore, ClassLoadHelper loadHelper,
       SchedulerSignaler signaler) throws SchedulerConfigException {
-    orientdbConnector = createMongoConnector(jobStore);
+    orientDbConnector = createOrientDbConnector(jobStore);
 
-    db = orientdbConnector.selectDatabase(jobStore.dbName);
+    //db = orientdbConnector.selectDatabase(jobStore.dbName);
 
     jobDao = createJobDao(jobStore, loadHelper);
 
@@ -103,6 +102,10 @@ public class StandardOrientDbStoreAssembler {
     triggerRunner = createTriggerRunner(misfireHandler);
 
     checkinExecutor = createCheckinExecutor(jobStore);
+  }
+
+  public StandardOrientDbConnector getOrientDbConnector() {
+    return orientDbConnector;
   }
 
   public CalendarDao getCalendarDao() {
@@ -166,7 +169,7 @@ public class StandardOrientDbStoreAssembler {
     return new MisfireHandler(calendarDao, signaler, jobStore.misfireThreshold);
   }
 
-  private StandardOrientDbConnector createMongoConnector(OrientDbJobStore jobStore)
+  private StandardOrientDbConnector createOrientDbConnector(OrientDbJobStore jobStore)
       throws SchedulerConfigException {
     return StandardOrientDbConnector.builder().withClient(jobStore.mongo).withUri(jobStore.orientdbUri)
         .withCredentials(jobStore.username, jobStore.password).withAddresses(jobStore.addresses)
