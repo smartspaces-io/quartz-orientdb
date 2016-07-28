@@ -3,7 +3,7 @@ package io.smartspaces.scheduling.quartz.orientdb.util
 import io.smartspaces.scheduling.quartz.orientdb.Clocks
 import io.smartspaces.scheduling.quartz.orientdb.Constants
 import io.smartspaces.scheduling.quartz.orientdb.cluster.Scheduler
-import io.smartspaces.scheduling.quartz.orientdb.dao.SchedulerDao
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardSchedulerDao
 
 import io.smartspaces.scheduling.quartz.orientdb.util.Clock;
 import io.smartspaces.scheduling.quartz.orientdb.util.ExpiryCalculator;
@@ -66,8 +66,8 @@ class ExpiryCalculatorTest extends Specification {
         new Scheduler("sname", defaultInstanceId, lastCheckinTime, 100l)
     }
 
-    def SchedulerDao createSchedulerDao(Scheduler scheduler) {
-          Mock(SchedulerDao) {
+    def StandardSchedulerDao createSchedulerDao(Scheduler scheduler) {
+          Mock(StandardSchedulerDao) {
             findInstance(_ as String) >> scheduler
             isNotSelf(scheduler) >> true
         }

@@ -1,5 +1,6 @@
 package io.smartspaces.scheduling.quartz.orientdb.db;
 
+import org.quartz.JobPersistenceException;
 import org.quartz.SchedulerConfigException;
 
 import com.orientechnologies.orient.core.db.OPartitionedDatabasePool;
@@ -67,6 +68,28 @@ public class StandardOrientDbConnector {
     return documentProvider.get();
   }
 
+  public <T> T doInTransaction(TransactionMethod<T> method) throws JobPersistenceException {
+    ODatabaseDocumentTx db = getConnection();
+    try {
+      db.begin();
+
+      T result = method.doInTransaction();
+
+      db.commit();
+
+      return result;
+    } catch (JobPersistenceException e) {
+      db.rollback();
+
+      throw e;
+    }
+
+  }
+
+  public interface TransactionMethod<T> {
+    T doInTransaction() throws JobPersistenceException;
+  }
+
   public static class OrientDbConnectorBuilder {
     private StandardOrientDbConnector connector = new StandardOrientDbConnector();
 
@@ -80,11 +103,6 @@ public class StandardOrientDbConnector {
     public StandardOrientDbConnector build() throws SchedulerConfigException {
       connect();
       return connector;
-    }
-
-    public OrientDbConnectorBuilder withClient(OPartitionedDatabasePool pool) {
-      connector.pool = pool;
-      return this;
     }
 
     public OrientDbConnectorBuilder withUri(String orientdbUri) {

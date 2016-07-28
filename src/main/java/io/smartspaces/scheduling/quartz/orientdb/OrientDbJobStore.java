@@ -24,6 +24,7 @@
  * license, a copy of which has been included with this distribution in the
  * LICENSE.txt file.
  */
+
 package io.smartspaces.scheduling.quartz.orientdb;
 
 import java.util.Collection;
@@ -31,7 +32,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.bson.Document;
 import org.quartz.Calendar;
 import org.quartz.JobDetail;
 import org.quartz.JobKey;
@@ -49,18 +49,18 @@ import org.quartz.spi.OperableTrigger;
 import org.quartz.spi.SchedulerSignaler;
 import org.quartz.spi.TriggerFiredResult;
 
-import com.mongodb.MongoClient;
 import com.mongodb.MongoCommandException;
 import com.mongodb.MongoException;
-import com.mongodb.client.MongoCollection;
 
-import io.smartspaces.scheduling.quartz.orientdb.util.Keys;
+import io.smartspaces.scheduling.quartz.orientdb.db.StandardOrientDbConnector.TransactionMethod;
 
-public class OrientDbJobStore implements JobStore, Constants {
+/**
+ * The Quartz Job Store that uses OrientDB.
+ */
+public class OrientDbJobStore implements JobStore {
 
   private StandardOrientDbStoreAssembler assembler = new StandardOrientDbStoreAssembler();
 
-  MongoClient mongo;
   String collectionPrefix = "quartz_";
   String dbName;
   String authDbName;
@@ -88,10 +88,6 @@ public class OrientDbJobStore implements JobStore, Constants {
   int mongoOptionWriteConcernTimeoutMillis = 5000;
 
   public OrientDbJobStore() {
-  }
-
-  public OrientDbJobStore(final MongoClient mongo) {
-    this.mongo = mongo;
   }
 
   public OrientDbJobStore(final String orientdbUri, final String username, final String password) {
@@ -185,14 +181,29 @@ public class OrientDbJobStore implements JobStore, Constants {
    * Job and Trigger storage Methods
    */
   @Override
-  public void storeJobAndTrigger(JobDetail newJob, OperableTrigger newTrigger)
+  public void storeJobAndTrigger(final JobDetail newJob, final OperableTrigger newTrigger)
       throws JobPersistenceException {
-    assembler.persister.storeJobAndTrigger(newJob, newTrigger);
+    assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Void>() {
+      @Override
+      public Void doInTransaction() throws JobPersistenceException {
+        assembler.persister.storeJobAndTrigger(newJob, newTrigger);
+
+        return null;
+      }
+    });
   }
 
   @Override
-  public void storeJob(JobDetail newJob, boolean replaceExisting) throws JobPersistenceException {
-    assembler.getJobDao().storeJobInMongo(newJob, replaceExisting);
+  public void storeJob(final JobDetail newJob, final boolean replaceExisting)
+      throws JobPersistenceException {
+    assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Void>() {
+      @Override
+      public Void doInTransaction() throws JobPersistenceException {
+        assembler.getJobDao().storeJob(newJob, replaceExisting);
+
+        return null;
+      }
+    });
   }
 
   @Override
@@ -202,13 +213,23 @@ public class OrientDbJobStore implements JobStore, Constants {
   }
 
   @Override
-  public boolean removeJob(JobKey jobKey) throws JobPersistenceException {
-    return assembler.persister.removeJob(jobKey);
+  public boolean removeJob(final JobKey jobKey) throws JobPersistenceException {
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Boolean>() {
+      @Override
+      public Boolean doInTransaction() throws JobPersistenceException {
+        return assembler.persister.removeJob(jobKey);
+      }
+    }).booleanValue();
   }
 
   @Override
-  public boolean removeJobs(List<JobKey> jobKeys) throws JobPersistenceException {
-    return assembler.persister.removeJobs(jobKeys);
+  public boolean removeJobs(final List<JobKey> jobKeys) throws JobPersistenceException {
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Boolean>() {
+      @Override
+      public Boolean doInTransaction() throws JobPersistenceException {
+        return assembler.persister.removeJobs(jobKeys);
+      }
+    }).booleanValue();
   }
 
   @Override
@@ -250,7 +271,7 @@ public class OrientDbJobStore implements JobStore, Constants {
 
   @Override
   public boolean checkExists(TriggerKey triggerKey) throws JobPersistenceException {
-    return assembler.getTriggerDao().exists(Keys.toFilter(triggerKey));
+    return assembler.getTriggerDao().exists(triggerKey);
   }
 
   @Override
@@ -361,8 +382,17 @@ public class OrientDbJobStore implements JobStore, Constants {
     return assembler.triggerStateManager.getPausedTriggerGroups();
   }
 
-  // only for tests
-  public Set<String> getPausedJobGroups() throws JobPersistenceException {
+  /**
+   * Get all paused groups.
+   * 
+   * <p>
+   * only for tests.
+   * 
+   * @return all paused groups
+   * 
+   * @throws JobPersistenceException
+   */
+  public List<String> getPausedJobGroups() throws JobPersistenceException {
     return assembler.getPausedJobGroupsDao().getPausedGroups();
   }
 

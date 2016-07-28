@@ -128,12 +128,17 @@ public class StandardJobDao {
     return keys;
   }
 
-  public Collection<ORID> idsOfMatching(GroupMatcher<JobKey> matcher) {
-    List<ORID> list = new ArrayList<>();
-    for (ODocument doc : findMatching(matcher)) {
-      list.add(doc.getIdentity());
-    }
-    return list;
+  public Set<String> groupsOfMatching(GroupMatcher<JobKey> matcher) {
+    String groupMatcherClause = queryHelper.matchingKeysConditionFor(matcher);
+    OSQLSynchQuery<ODocument> query =
+        new OSQLSynchQuery<ODocument>("select DISTINCT(keyGroup) from Job where " + groupMatcherClause);
+
+    ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
+
+    List<String> groups = database.query(query);
+
+    return new HashSet<String>(groups);
+
   }
 
   public void remove(ODocument job) {
@@ -155,7 +160,7 @@ public class StandardJobDao {
     return jobConverter.toJobDetail(doc);
   }
 
-  public ORID storeJobInMongo(JobDetail newJob, boolean replaceExisting)
+  public ORID storeJob(JobDetail newJob, boolean replaceExisting)
       throws ObjectAlreadyExistsException {
     JobKey key = newJob.getKey();
 

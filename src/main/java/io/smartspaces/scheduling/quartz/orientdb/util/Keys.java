@@ -74,9 +74,6 @@ public class Keys {
     return Filters.eq(Constants.LOCK_INSTANCE_ID, instanceId);
   }
 
-  public static Bson createRelockFilter(TriggerKey key, Date lockTime) {
-    return Filters.and(createTriggerLockFilter(key), createLockTimeFilter(lockTime));
-  }
 
   public static ODocument createJobLock(JobKey jobKey, String instanceId, Date lockTime) {
     return createLock(LockType.job, instanceId, jobKey, lockTime);
@@ -112,11 +109,6 @@ public class Keys {
     lock.field(Constants.LOCK_INSTANCE_ID, instanceId);
     lock.field(Constants.LOCK_TIME, lockTime);
     return lock;
-  }
-
-  public static Document createLockUpdateDocument(String instanceId, Date newLockTime) {
-    return new Document("$set", new Document().append(Constants.LOCK_INSTANCE_ID, instanceId)
-        .append(Constants.LOCK_TIME, newLockTime));
   }
 
  

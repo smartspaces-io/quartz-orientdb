@@ -4,7 +4,7 @@ import io.smartspaces.scheduling.quartz.orientdb.Clocks
 import io.smartspaces.scheduling.quartz.orientdb.MongoHelper
 import io.smartspaces.scheduling.quartz.orientdb.util.Clock
 
-import io.smartspaces.scheduling.quartz.orientdb.dao.SchedulerDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardSchedulerDao;
 import spock.lang.Shared
 import spock.lang.Specification
 
@@ -186,10 +186,10 @@ class SchedulerDaoTest extends Specification {
 
     def addEntry(String id, long checkinTime) {
         MongoHelper.addScheduler([
-                (SchedulerDao.SCHEDULER_NAME_FIELD)   : schedulerName,
-                (SchedulerDao.INSTANCE_ID_FIELD)      : id,
-                (SchedulerDao.CHECKIN_INTERVAL_FIELD) : 100l,
-                (SchedulerDao.LAST_CHECKIN_TIME_FIELD): checkinTime])
+                (StandardSchedulerDao.SCHEDULER_NAME_FIELD)   : schedulerName,
+                (StandardSchedulerDao.INSTANCE_ID_FIELD)      : id,
+                (StandardSchedulerDao.CHECKIN_INTERVAL_FIELD) : 100l,
+                (StandardSchedulerDao.LAST_CHECKIN_TIME_FIELD): checkinTime])
     }
 
     def createDao() {
@@ -201,7 +201,7 @@ class SchedulerDaoTest extends Specification {
     }
 
     def createDao(String id, Clock clock) {
-        new SchedulerDao(MongoHelper.getSchedulersColl(),
+        new StandardSchedulerDao(MongoHelper.getSchedulersColl(),
                 schedulerName, id, clusterCheckinIntervalMillis, clock)
     }
 

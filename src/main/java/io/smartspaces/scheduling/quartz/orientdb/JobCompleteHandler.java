@@ -27,83 +27,82 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.smartspaces.scheduling.quartz.orientdb.dao.StandardJobDao;
-import io.smartspaces.scheduling.quartz.orientdb.dao.LocksDao;
-import io.smartspaces.scheduling.quartz.orientdb.dao.TriggerDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardLocksDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardTriggerDao;
 
 //TODO Think of some better name for doing work after a job has completed :-)
 public class JobCompleteHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(JobCompleteHandler.class);
+  private static final Logger log = LoggerFactory.getLogger(JobCompleteHandler.class);
 
-    private final TriggerAndJobPersister persister;
-    private final SchedulerSignaler signaler;
-    private final StandardJobDao jobDao;
-    private final LocksDao locksDao;
-    private TriggerDao triggerDao;
+  private final TriggerAndJobPersister persister;
+  private final SchedulerSignaler signaler;
+  private final StandardJobDao jobDao;
+  private final StandardLocksDao locksDao;
+  private StandardTriggerDao triggerDao;
 
-    public JobCompleteHandler(TriggerAndJobPersister persister, SchedulerSignaler signaler,
-                              StandardJobDao jobDao, LocksDao locksDao, TriggerDao triggerDao) {
-        this.persister = persister;
-        this.signaler = signaler;
-        this.jobDao = jobDao;
-        this.locksDao = locksDao;
-        this.triggerDao = triggerDao;
+  public JobCompleteHandler(TriggerAndJobPersister persister, SchedulerSignaler signaler,
+      StandardJobDao jobDao, StandardLocksDao locksDao, StandardTriggerDao triggerDao) {
+    this.persister = persister;
+    this.signaler = signaler;
+    this.jobDao = jobDao;
+    this.locksDao = locksDao;
+    this.triggerDao = triggerDao;
+  }
+
+  public void jobComplete(OperableTrigger trigger, JobDetail job,
+      CompletedExecutionInstruction executionInstruction) throws JobPersistenceException {
+    log.debug("Trigger completed {}", trigger.getKey());
+
+    if (job.isPersistJobDataAfterExecution()) {
+      if (job.getJobDataMap().isDirty()) {
+        log.debug("Job data map dirty, will store {}", job.getKey());
+        jobDao.storeJob(job, true);
+      }
     }
 
-    public void jobComplete(OperableTrigger trigger, JobDetail job,
-                            CompletedExecutionInstruction executionInstruction)
-            throws JobPersistenceException {
-        log.debug("Trigger completed {}", trigger.getKey());
+    if (job.isConcurrentExectionDisallowed()) {
+      locksDao.unlockJob(job);
+    }
 
-        if (job.isPersistJobDataAfterExecution()) {
-            if (job.getJobDataMap().isDirty()) {
-                log.debug("Job data map dirty, will store {}", job.getKey());
-                jobDao.storeJobInMongo(job, true);
-            }
+    process(trigger, executionInstruction);
+
+    locksDao.unlockTrigger(trigger);
+  }
+
+  private boolean isTriggerDeletionRequested(CompletedExecutionInstruction triggerInstCode) {
+    return triggerInstCode == CompletedExecutionInstruction.DELETE_TRIGGER;
+  }
+
+  private void process(OperableTrigger trigger, CompletedExecutionInstruction executionInstruction)
+      throws JobPersistenceException {
+    // check for trigger deleted during execution...
+    OperableTrigger dbTrigger = triggerDao.getTrigger(trigger.getKey());
+    if (dbTrigger != null) {
+      if (isTriggerDeletionRequested(executionInstruction)) {
+        if (trigger.getNextFireTime() == null) {
+          // double check for possible reschedule within job
+          // execution, which would cancel the need to delete...
+          if (dbTrigger.getNextFireTime() == null) {
+            persister.removeTrigger(trigger.getKey());
+          }
+        } else {
+          persister.removeTrigger(trigger.getKey());
+          signaler.signalSchedulingChange(0L);
         }
-
-        if (job.isConcurrentExectionDisallowed()) {
-            locksDao.unlockJob(job);
-        }
-
-        process(trigger, executionInstruction);
-
-        locksDao.unlockTrigger(trigger);
+      } else if (executionInstruction == CompletedExecutionInstruction.SET_TRIGGER_COMPLETE) {
+        // TODO: need to store state
+        signaler.signalSchedulingChange(0L);
+      } else if (executionInstruction == CompletedExecutionInstruction.SET_TRIGGER_ERROR) {
+        // TODO: need to store state
+        signaler.signalSchedulingChange(0L);
+      } else if (executionInstruction == CompletedExecutionInstruction.SET_ALL_JOB_TRIGGERS_ERROR) {
+        // TODO: need to store state
+        signaler.signalSchedulingChange(0L);
+      } else if (executionInstruction == CompletedExecutionInstruction.SET_ALL_JOB_TRIGGERS_COMPLETE) {
+        // TODO: need to store state
+        signaler.signalSchedulingChange(0L);
+      }
     }
-
-    private boolean isTriggerDeletionRequested(CompletedExecutionInstruction triggerInstCode) {
-        return triggerInstCode == CompletedExecutionInstruction.DELETE_TRIGGER;
-    }
-
-    private void process(OperableTrigger trigger, CompletedExecutionInstruction executionInstruction)
-            throws JobPersistenceException {
-        // check for trigger deleted during execution...
-        OperableTrigger dbTrigger = triggerDao.getTrigger(trigger.getKey());
-        if (dbTrigger != null) {
-            if (isTriggerDeletionRequested(executionInstruction)) {
-                if (trigger.getNextFireTime() == null) {
-                    // double check for possible reschedule within job
-                    // execution, which would cancel the need to delete...
-                    if (dbTrigger.getNextFireTime() == null) {
-                        persister.removeTrigger(trigger.getKey());
-                    }
-                } else {
-                    persister.removeTrigger(trigger.getKey());
-                    signaler.signalSchedulingChange(0L);
-                }
-            } else if (executionInstruction == CompletedExecutionInstruction.SET_TRIGGER_COMPLETE) {
-                // TODO: need to store state
-                signaler.signalSchedulingChange(0L);
-            } else if (executionInstruction == CompletedExecutionInstruction.SET_TRIGGER_ERROR) {
-                // TODO: need to store state
-                signaler.signalSchedulingChange(0L);
-            } else if (executionInstruction == CompletedExecutionInstruction.SET_ALL_JOB_TRIGGERS_ERROR) {
-                // TODO: need to store state
-                signaler.signalSchedulingChange(0L);
-            } else if (executionInstruction == CompletedExecutionInstruction.SET_ALL_JOB_TRIGGERS_COMPLETE) {
-                // TODO: need to store state
-                signaler.signalSchedulingChange(0L);
-            }
-        }
-    }
+  }
 }

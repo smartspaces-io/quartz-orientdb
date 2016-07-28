@@ -1,10 +1,34 @@
+/*
+ * Copyright (C) 2016 Keith M. Hughes
+ * Forked from code (c) Michael S. Klishin, Alex Petrov, 2011-2015.
+ * Forked from code from MuleSoft.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+/*
+ * $Id: MongoDBJobStore.java 253170 2014-01-06 02:28:03Z waded $
+ * --------------------------------------------------------------------------------------
+ * Copyright (c) MuleSoft, Inc.  All rights reserved.  http://www.mulesoft.com
+ *
+ * The software in this package is published under the terms of the CPAL v1.0
+ * license, a copy of which has been included with this distribution in the
+ * LICENSE.txt file.
+ */
+
 package io.smartspaces.scheduling.quartz.orientdb;
 
 import java.util.List;
 
-import org.bson.Document;
-import org.bson.conversions.Bson;
-import org.bson.types.ObjectId;
 import org.quartz.JobDetail;
 import org.quartz.JobKey;
 import org.quartz.JobPersistenceException;
@@ -17,19 +41,18 @@ import com.orientechnologies.orient.core.id.ORID;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 
 import io.smartspaces.scheduling.quartz.orientdb.dao.StandardJobDao;
-import io.smartspaces.scheduling.quartz.orientdb.dao.TriggerDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardTriggerDao;
 import io.smartspaces.scheduling.quartz.orientdb.trigger.TriggerConverter;
-import io.smartspaces.scheduling.quartz.orientdb.util.Keys;
 
 public class TriggerAndJobPersister {
 
   private static final Logger log = LoggerFactory.getLogger(TriggerAndJobPersister.class);
 
-  private final TriggerDao triggerDao;
+  private final StandardTriggerDao triggerDao;
   private final StandardJobDao jobDao;
   private TriggerConverter triggerConverter;
 
-  public TriggerAndJobPersister(TriggerDao triggerDao, StandardJobDao jobDao,
+  public TriggerAndJobPersister(StandardTriggerDao triggerDao, StandardJobDao jobDao,
       TriggerConverter triggerConverter) {
     this.triggerDao = triggerDao;
     this.jobDao = jobDao;
@@ -42,14 +65,14 @@ public class TriggerAndJobPersister {
   }
 
   public boolean removeJob(JobKey jobKey) {
-    Bson keyObject = Keys.toFilter(jobKey);
-    ODocument item = jobDao.getJob(keyObject);
-    if (item != null) {
-      jobDao.remove(keyObject);
-      triggerDao.removeByJobId(item.get("_id"));
+    ODocument jobDoc = jobDao.getJob(jobKey);
+    if (jobDoc != null) {
+      jobDao.remove(jobDoc);
+      triggerDao.removeByJobId(jobDoc.getIdentity());
       return true;
-    }
+    } else {
     return false;
+    }
   }
 
   public boolean removeJobs(List<JobKey> jobKeys) throws JobPersistenceException {
@@ -60,12 +83,10 @@ public class TriggerAndJobPersister {
   }
 
   public boolean removeTrigger(TriggerKey triggerKey) {
-    Bson filter = Keys.toFilter(triggerKey);
-    Document trigger = triggerDao.findTrigger(filter);
+    ODocument trigger = triggerDao.findTrigger(triggerKey);
     if (trigger != null) {
       removeOrphanedJob(trigger);
-      // TODO: check if can .deleteOne(filter) here
-      triggerDao.remove(filter);
+      triggerDao.remove(trigger);
       return true;
     }
     return false;
@@ -109,7 +130,7 @@ public class TriggerAndJobPersister {
 
   public void storeJobAndTrigger(JobDetail newJob, OperableTrigger newTrigger)
       throws JobPersistenceException {
-    ObjectId jobId = jobDao.storeJobInMongo(newJob, false);
+    ORID jobId = jobDao.storeJob(newJob, false);
 
     log.debug("Storing job {} and trigger {}", newJob.getKey(), newTrigger.getKey());
     storeTrigger(newTrigger, jobId, false);
@@ -117,16 +138,17 @@ public class TriggerAndJobPersister {
 
   public void storeTrigger(OperableTrigger newTrigger, boolean replaceExisting)
       throws JobPersistenceException {
-    if (newTrigger.getJobKey() == null) {
+    JobKey jobKey = newTrigger.getJobKey();
+    if (jobKey == null) {
       throw new JobPersistenceException(
           "Trigger must be associated with a job. Please specify a JobKey.");
     }
 
-    ODocument doc = jobDao.getJob(Keys.toFilter(newTrigger.getJobKey()));
-    if (doc != null) {
-      storeTrigger(newTrigger, doc.getObjectId("_id"), replaceExisting);
+    ODocument jobDoc = jobDao.getJob(jobKey);
+    if (jobDoc != null) {
+      storeTrigger(newTrigger, jobDoc.getIdentity(), replaceExisting);
     } else {
-      throw new JobPersistenceException("Could not find job with key " + newTrigger.getJobKey());
+      throw new JobPersistenceException("Could not find job with key " + jobKey);
     }
   }
 
@@ -137,7 +159,7 @@ public class TriggerAndJobPersister {
 
   private boolean isNotDurable(ODocument job) {
     return !job.containsField(JobConverter.JOB_DURABILITY)
-        || job.get(JobConverter.JOB_DURABILITY).toString().equals("false");
+        || job.field(JobConverter.JOB_DURABILITY).toString().equals("false");
   }
 
   private boolean isOrphan(ODocument job) {
@@ -179,7 +201,6 @@ public class TriggerAndJobPersister {
       throws JobPersistenceException {
     ODocument trigger = triggerConverter.toDocument(newTrigger, jobId);
     if (replaceExisting) {
-      trigger.remove("_id");
       triggerDao.replace(newTrigger.getKey(), trigger);
     } else {
       triggerDao.insert(trigger, newTrigger);

@@ -19,17 +19,13 @@
 package io.smartspaces.scheduling.quartz.orientdb.dao;
 
 import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.createJobLock;
-import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.createLockUpdateDocument;
-import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.createRelockFilter;
 import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.createTriggerLock;
-import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.toFilter;
 import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.toTriggerKey;
 
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 
-import org.bson.conversions.Bson;
 import org.quartz.JobDetail;
 import org.quartz.JobKey;
 import org.quartz.JobPersistenceException;
@@ -39,25 +35,24 @@ import org.quartz.utils.Key;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.mongodb.MongoException;
-import com.mongodb.client.result.UpdateResult;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.sql.query.OSQLSynchQuery;
 
+import io.smartspaces.scheduling.quartz.orientdb.Constants;
 import io.smartspaces.scheduling.quartz.orientdb.StandardOrientDbStoreAssembler;
 import io.smartspaces.scheduling.quartz.orientdb.util.Clock;
 import io.smartspaces.scheduling.quartz.orientdb.util.Keys.LockType;
 
-public class LocksDao {
+public class StandardLocksDao {
 
-  private static final Logger log = LoggerFactory.getLogger(LocksDao.class);
+  private static final Logger log = LoggerFactory.getLogger(StandardLocksDao.class);
 
   private final StandardOrientDbStoreAssembler storeAssembler;
   private Clock clock;
-  public final String instanceId;
+  private final String instanceId;
 
-  public LocksDao(StandardOrientDbStoreAssembler storeAssembler, Clock clock, String instanceId) {
+  public StandardLocksDao(StandardOrientDbStoreAssembler storeAssembler, Clock clock, String instanceId) {
     this.storeAssembler = storeAssembler;
     this.clock = clock;
     this.instanceId = instanceId;
@@ -170,50 +165,61 @@ public class LocksDao {
    * @return {@code false} when not found or caught an exception
    */
   public boolean relock(TriggerKey key, Date lockTime) {
-    UpdateResult updateResult;
     try {
-      updateResult = locksCollection.updateOne(createRelockFilter(key, lockTime),
-          createLockUpdateDocument(instanceId, clock.now()));
-    } catch (MongoException e) {
+      // TODO(keith): class and field names should come from external constants
+      // Also create query ahead of time when DAO starts.
+      OSQLSynchQuery<ODocument> query = new OSQLSynchQuery<ODocument>(
+          "select from Locks where instanceId=? and type=? and keyGroup=? and keyName=? and time=?");
+      ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
+      List<ODocument> result = database.command(query).execute(instanceId, LockType.trigger.name(),
+          key.getGroup(), key.getName(), lockTime);
+
+      if (!result.isEmpty()) {
+        ODocument lockDoc = result.get(0);
+        lockDoc.field(Constants.LOCK_TIME, clock.now());
+        lockDoc.save();
+      }
+    } catch (Exception e) {
       log.error("Relock failed because: " + e.getMessage(), e);
       return false;
     }
 
-    if (updateResult.getModifiedCount() == 1) {
-      log.info("Scheduler {} relocked the trigger: {}", instanceId, key);
-      return true;
-    }
-    log.info("Scheduler {} couldn't relock the trigger {} with lock time: {}", instanceId, key,
-        lockTime.getTime());
-    return false;
+    log.info("Scheduler {} relocked the trigger: {}", instanceId, key);
+    return true;
   }
 
   /**
    * Reset lock time on own lock.
-   *
-   * @throws JobPersistenceException
-   *           in case of errors from Mongo
+   * 
    * @param key
    *          trigger whose lock to refresh
    * 
    * @return {@code true} on successful update
+   *
+   * @throws JobPersistenceException
+   *           in case of errors from OrientDB
    */
   public boolean updateOwnLock(TriggerKey key) throws JobPersistenceException {
-    UpdateResult updateResult;
     try {
-      updateResult = locksCollection.updateMany(toFilter(key, instanceId),
-          createLockUpdateDocument(instanceId, clock.now()));
-    } catch (MongoException e) {
+      // TODO(keith): class and field names should come from external constants
+      // Also create query ahead of time when DAO starts.
+      OSQLSynchQuery<ODocument> query = new OSQLSynchQuery<ODocument>(
+          "select from Locks where instanceId=? and keyGroup=? and keyName=?");
+      ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
+      List<ODocument> result =
+          database.command(query).execute(instanceId, key.getGroup(), key.getName());
+
+      for (ODocument lockDoc : result) {
+        lockDoc.field(Constants.LOCK_TIME, clock.now());
+        lockDoc.save();
+      }
+    } catch (Exception e) {
       log.error("Lock refresh failed because: " + e.getMessage(), e);
       throw new JobPersistenceException("Lock refresh for scheduler: " + instanceId, e);
     }
 
-    if (updateResult.getModifiedCount() == 1) {
-      log.info("Scheduler {} refreshed locking time.", instanceId);
-      return true;
-    }
-    log.info("Scheduler {} couldn't refresh locking time", instanceId);
-    return false;
+    log.info("Scheduler {} refreshed locking time.", instanceId);
+    return true;
   }
 
   /**
@@ -238,6 +244,10 @@ public class LocksDao {
     for (ODocument lock : locks) {
       lock.delete();
     }
+  }
+  
+  public void remove(ODocument lockDoc) {
+    lockDoc.delete();
   }
 
   private List<ODocument> createLockFilter(LockType lockType, Key<?> key) {

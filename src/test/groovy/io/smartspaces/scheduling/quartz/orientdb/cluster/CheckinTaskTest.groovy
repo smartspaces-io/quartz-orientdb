@@ -1,14 +1,14 @@
 package io.smartspaces.scheduling.quartz.orientdb.cluster
 
 import com.mongodb.MongoException
-import io.smartspaces.scheduling.quartz.orientdb.dao.SchedulerDao
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardSchedulerDao
 
 import io.smartspaces.scheduling.quartz.orientdb.cluster.CheckinTask;
 import spock.lang.Specification
 
 class CheckinTaskTest extends Specification {
 
-    def schedulerDao = Mock(SchedulerDao)
+    def schedulerDao = Mock(StandardSchedulerDao)
     def checkinTask = new CheckinTask(schedulerDao)
 
     def 'should store scheduler data to checkin'() {

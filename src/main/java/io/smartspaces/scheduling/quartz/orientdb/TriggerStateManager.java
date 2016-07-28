@@ -19,43 +19,39 @@
 package io.smartspaces.scheduling.quartz.orientdb;
 
 import java.util.Collection;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Set;
 
-import org.bson.types.ObjectId;
 import org.quartz.JobKey;
 import org.quartz.Trigger.TriggerState;
 import org.quartz.TriggerKey;
 import org.quartz.impl.matchers.GroupMatcher;
 
+import com.orientechnologies.orient.core.id.ORID;
+
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardPausedTriggerGroupsDao;
 import io.smartspaces.scheduling.quartz.orientdb.dao.StandardJobDao;
-import io.smartspaces.scheduling.quartz.orientdb.dao.PausedJobGroupsDao;
-import io.smartspaces.scheduling.quartz.orientdb.dao.PausedTriggerGroupsDao;
-import io.smartspaces.scheduling.quartz.orientdb.dao.TriggerDao;
-import io.smartspaces.scheduling.quartz.orientdb.util.GroupHelper;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardPausedJobGroupsDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardTriggerDao;
 import io.smartspaces.scheduling.quartz.orientdb.util.QueryHelper;
-import io.smartspaces.scheduling.quartz.orientdb.util.TriggerGroupHelper;
 
 public class TriggerStateManager {
 
-  private final TriggerDao triggerDao;
+  private final StandardTriggerDao triggerDao;
   private final StandardJobDao jobDao;
-  private PausedJobGroupsDao pausedJobGroupsDao;
-  private final PausedTriggerGroupsDao pausedTriggerGroupsDao;
-  private final QueryHelper queryHelper;
+  private StandardPausedJobGroupsDao pausedJobGroupsDao;
+  private final StandardPausedTriggerGroupsDao pausedTriggerGroupsDao;
 
-  public TriggerStateManager(TriggerDao triggerDao, StandardJobDao jobDao,
-      PausedJobGroupsDao pausedJobGroupsDao, PausedTriggerGroupsDao pausedTriggerGroupsDao,
-      QueryHelper queryHelper) {
+  public TriggerStateManager(StandardTriggerDao triggerDao, StandardJobDao jobDao,
+      StandardPausedJobGroupsDao pausedJobGroupsDao, StandardPausedTriggerGroupsDao pausedTriggerGroupsDao) {
     this.triggerDao = triggerDao;
     this.jobDao = jobDao;
     this.pausedJobGroupsDao = pausedJobGroupsDao;
     this.pausedTriggerGroupsDao = pausedTriggerGroupsDao;
-    this.queryHelper = queryHelper;
   }
 
   public Set<String> getPausedTriggerGroups() {
-    return pausedTriggerGroupsDao.getPausedGroups();
+    return new HashSet<String>(pausedTriggerGroupsDao.getPausedGroups());
   }
 
   public TriggerState getState(TriggerKey triggerKey) {
@@ -66,35 +62,29 @@ public class TriggerStateManager {
     triggerDao.setState(triggerKey, Constants.STATE_PAUSED);
   }
 
-  public Collection<String> pause(GroupMatcher<TriggerKey> matcher) {
+  public Set<String> pause(GroupMatcher<TriggerKey> matcher) {
     triggerDao.setStateInMatching(matcher, Constants.STATE_PAUSED);
 
-    final GroupHelper groupHelper = new GroupHelper(triggerDao.getCollection(), queryHelper);
-    final Set<String> set = groupHelper.groupsThatMatch(matcher);
+    Set<String> set = triggerDao.getTriggerGroupsThatMatch(matcher);
     pausedTriggerGroupsDao.pauseGroups(set);
 
     return set;
   }
 
   public void pauseAll() {
-    final GroupHelper groupHelper = new GroupHelper(triggerDao.getCollection(), queryHelper);
     triggerDao.setStateInAll(Constants.STATE_PAUSED);
-    pausedTriggerGroupsDao.pauseGroups(groupHelper.allGroups());
+    pausedTriggerGroupsDao.pauseGroups(triggerDao.getGroupNames());
   }
 
   public void pauseJob(JobKey jobKey) {
-    final ObjectId jobId = jobDao.getJob(jobKey).getObjectId("_id");
-    final TriggerGroupHelper groupHelper =
-        new TriggerGroupHelper(triggerDao.getCollection(), queryHelper);
-    List<String> groups = groupHelper.groupsForJobId(jobId);
+    ORID jobId = jobDao.getJob(jobKey).getIdentity();
     triggerDao.setStateByJobId(jobId, Constants.STATE_PAUSED);
+    Set<String> groups = triggerDao.getGroupsByJobId(jobId);
     pausedTriggerGroupsDao.pauseGroups(groups);
   }
 
   public Collection<String> pauseJobs(GroupMatcher<JobKey> groupMatcher) {
-    final TriggerGroupHelper groupHelper =
-        new TriggerGroupHelper(triggerDao.getCollection(), queryHelper);
-    List<String> groups = groupHelper.groupsForJobIds(jobDao.idsOfMatching(groupMatcher));
+    Set<String> groups = jobDao.groupsOfMatching(groupMatcher);
     triggerDao.setStateInGroups(groups, Constants.STATE_PAUSED);
     pausedJobGroupsDao.pauseGroups(groups);
     return groups;
@@ -109,31 +99,28 @@ public class TriggerStateManager {
   public Collection<String> resume(GroupMatcher<TriggerKey> matcher) {
     triggerDao.setStateInMatching(matcher, Constants.STATE_WAITING);
 
-    final GroupHelper groupHelper = new GroupHelper(triggerDao.getCollection(), queryHelper);
-    final Set<String> set = groupHelper.groupsThatMatch(matcher);
-    pausedTriggerGroupsDao.unpauseGroups(set);
-    return set;
+    Set<String> triggerGroupsThatMatch = triggerDao.getTriggerGroupsThatMatch(matcher);
+    pausedTriggerGroupsDao.unpauseGroups(triggerGroupsThatMatch);
+    return triggerGroupsThatMatch;
   }
 
   public void resume(JobKey jobKey) {
-    final ObjectId jobId = jobDao.getJob(jobKey).getObjectId("_id");
+    ORID jobId = jobDao.getJob(jobKey).getIdentity();
     // TODO: port blocking behavior and misfired triggers handling from
     // StdJDBCDelegate in Quartz
     triggerDao.setStateByJobId(jobId, Constants.STATE_WAITING);
   }
 
   public void resumeAll() {
-    final GroupHelper groupHelper = new GroupHelper(triggerDao.getCollection(), queryHelper);
     triggerDao.setStateInAll(Constants.STATE_WAITING);
-    pausedTriggerGroupsDao.unpauseGroups(groupHelper.allGroups());
+    pausedTriggerGroupsDao.remove();
   }
 
-  public Collection<String> resumeJobs(GroupMatcher<JobKey> groupMatcher) {
-    final TriggerGroupHelper groupHelper =
-        new TriggerGroupHelper(triggerDao.getCollection(), queryHelper);
-    List<String> groups = groupHelper.groupsForJobIds(jobDao.idsOfMatching(groupMatcher));
+  public Set<String> resumeJobs(GroupMatcher<JobKey> groupMatcher) {
+    Set<String> groups = jobDao.groupsOfMatching(groupMatcher);
     triggerDao.setStateInGroups(groups, Constants.STATE_WAITING);
     pausedJobGroupsDao.unpauseGroups(groups);
+    
     return groups;
   }
 

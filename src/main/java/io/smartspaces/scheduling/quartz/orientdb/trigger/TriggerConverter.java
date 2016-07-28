@@ -1,26 +1,3 @@
-package io.smartspaces.scheduling.quartz.orientdb.trigger;
-
-import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.KEY_GROUP;
-import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.KEY_NAME;
-
-import java.io.IOException;
-
-import org.bson.types.ObjectId;
-import org.quartz.Job;
-import org.quartz.JobKey;
-import org.quartz.JobPersistenceException;
-import org.quartz.TriggerKey;
-import org.quartz.spi.OperableTrigger;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.orientechnologies.orient.core.id.ORID;
-import com.orientechnologies.orient.core.record.impl.ODocument;
-
-import io.smartspaces.scheduling.quartz.orientdb.Constants;
-import io.smartspaces.scheduling.quartz.orientdb.dao.JobDao;
-import io.smartspaces.scheduling.quartz.orientdb.util.SerialUtils;
-
 /*
  * Copyright (C) 2016 Keith M. Hughes
  * Forked from code (c) Michael S. Klishin, Alex Petrov, 2011-2015.
@@ -39,159 +16,184 @@ import io.smartspaces.scheduling.quartz.orientdb.util.SerialUtils;
  * the License.
  */
 
+package io.smartspaces.scheduling.quartz.orientdb.trigger;
+
+import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.KEY_GROUP;
+import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.KEY_NAME;
+
+import java.io.IOException;
+import java.util.Date;
+
+import org.quartz.Job;
+import org.quartz.JobKey;
+import org.quartz.JobPersistenceException;
+import org.quartz.TriggerKey;
+import org.quartz.spi.OperableTrigger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.orientechnologies.orient.core.id.ORID;
+import com.orientechnologies.orient.core.record.impl.ODocument;
+
+import io.smartspaces.scheduling.quartz.orientdb.Constants;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardJobDao;
+import io.smartspaces.scheduling.quartz.orientdb.util.SerialUtils;
+
 public class TriggerConverter {
 
-    private static final String TRIGGER_CALENDAR_NAME = "calendarName";
-    private static final String TRIGGER_CLASS = "class";
-    private static final String TRIGGER_DESCRIPTION = "description";
-    private static final String TRIGGER_END_TIME = "endTime";
-    private static final String TRIGGER_FINAL_FIRE_TIME = "finalFireTime";
-    private static final String TRIGGER_FIRE_INSTANCE_ID = "fireInstanceId";
-    private static final String TRIGGER_MISFIRE_INSTRUCTION = "misfireInstruction";
-    private static final String TRIGGER_PREVIOUS_FIRE_TIME = "previousFireTime";
-    private static final String TRIGGER_PRIORITY = "priority";
-    private static final String TRIGGER_START_TIME = "startTime";
+  private static final String TRIGGER_CALENDAR_NAME = "calendarName";
+  private static final String TRIGGER_CLASS = "class";
+  private static final String TRIGGER_DESCRIPTION = "description";
+  private static final String TRIGGER_END_TIME = "endTime";
+  private static final String TRIGGER_FINAL_FIRE_TIME = "finalFireTime";
+  private static final String TRIGGER_FIRE_INSTANCE_ID = "fireInstanceId";
+  private static final String TRIGGER_MISFIRE_INSTRUCTION = "misfireInstruction";
+  private static final String TRIGGER_PREVIOUS_FIRE_TIME = "previousFireTime";
+  private static final String TRIGGER_PRIORITY = "priority";
+  private static final String TRIGGER_START_TIME = "startTime";
 
-    private static final Logger log = LoggerFactory.getLogger(TriggerConverter.class);
+  private static final Logger log = LoggerFactory.getLogger(TriggerConverter.class);
 
-    private JobDao jobDao;
+  private StandardJobDao jobDao;
 
-    public TriggerConverter(JobDao jobDao) {
-        this.jobDao = jobDao;
+  public TriggerConverter(StandardJobDao jobDao) {
+    this.jobDao = jobDao;
+  }
+
+  public ODocument toDocument(OperableTrigger newTrigger, ORID jobId)
+      throws JobPersistenceException {
+    ODocument trigger = convertToDocument(newTrigger, jobId);
+    if (newTrigger.getJobDataMap().size() > 0) {
+      try {
+        String jobDataString = SerialUtils.serialize(newTrigger.getJobDataMap());
+        trigger.field(Constants.JOB_DATA, jobDataString);
+      } catch (IOException ioe) {
+        throw new JobPersistenceException(
+            "Could not serialise job data map on the trigger for " + newTrigger.getKey(), ioe);
+      }
     }
 
-    public ODocument toDocument(OperableTrigger newTrigger, ORID jobId)
-            throws JobPersistenceException {
-        ODocument trigger = convertToDocument(newTrigger, jobId);
-        if (newTrigger.getJobDataMap().size() > 0) {
-            try {
-                String jobDataString = SerialUtils.serialize(newTrigger.getJobDataMap());
-                trigger.field(Constants.JOB_DATA, jobDataString);
-            } catch (IOException ioe) {
-                throw new JobPersistenceException("Could not serialise job data map on the trigger for "
-                        + newTrigger.getKey(), ioe);
-            }
-        }
+    TriggerPropertiesConverter tpd = TriggerPropertiesConverter.getConverterFor(newTrigger);
+    trigger = tpd.injectExtraPropertiesForInsert(newTrigger, trigger);
+    return trigger;
+  }
 
-        TriggerPropertiesConverter tpd = TriggerPropertiesConverter.getConverterFor(newTrigger);
-        trigger = tpd.injectExtraPropertiesForInsert(newTrigger, trigger);
-        return trigger;
+  /**
+   * Restore trigger from Mongo Document.
+   *
+   * @param triggerKey
+   * @param triggerDoc
+   * @return trigger from Document or null when trigger has no associated job
+   * @throws JobPersistenceException
+   */
+  public OperableTrigger toTrigger(TriggerKey triggerKey, ODocument triggerDoc)
+      throws JobPersistenceException {
+    OperableTrigger trigger = createNewInstance(triggerDoc);
+
+    TriggerPropertiesConverter tpd = TriggerPropertiesConverter.getConverterFor(trigger);
+
+    loadCommonProperties(triggerKey, triggerDoc, trigger);
+
+    loadJobData(triggerDoc, trigger);
+
+    loadStartAndEndTimes(triggerDoc, trigger);
+
+    tpd.setExtraPropertiesAfterInstantiation(trigger, triggerDoc);
+
+    ODocument job = triggerDoc.field(Constants.TRIGGER_JOB_ID);
+    if (job != null) {
+      String keyName = job.field(KEY_NAME);
+      String keyGroup = job.field(KEY_GROUP);
+      trigger.setJobKey(new JobKey(keyName, keyGroup));
+      return trigger;
+    } else {
+      // job was deleted
+      return null;
     }
+  }
 
-    /**
-     * Restore trigger from Mongo Document.
-     *
-     * @param triggerKey
-     * @param triggerDoc
-     * @return trigger from Document or null when trigger has no associated job
-     * @throws JobPersistenceException
-     */
-    public OperableTrigger toTrigger(TriggerKey triggerKey, ODocument triggerDoc)
-            throws JobPersistenceException {
-        OperableTrigger trigger = createNewInstance(triggerDoc);
+  public OperableTrigger toTrigger(ODocument doc) throws JobPersistenceException {
+    TriggerKey key = new TriggerKey((String) doc.field(KEY_NAME), (String) doc.field(KEY_GROUP));
+    return toTrigger(key, doc);
+  }
 
-        TriggerPropertiesConverter tpd = TriggerPropertiesConverter.getConverterFor(trigger);
+  private ODocument convertToDocument(OperableTrigger newTrigger, ORID jobId) {
+    ODocument trigger = new ODocument();
+    trigger.field(Constants.TRIGGER_STATE, Constants.STATE_WAITING);
+    trigger.field(TRIGGER_CALENDAR_NAME, newTrigger.getCalendarName());
+    trigger.field(TRIGGER_CLASS, newTrigger.getClass().getName());
+    trigger.field(TRIGGER_DESCRIPTION, newTrigger.getDescription());
+    trigger.field(TRIGGER_END_TIME, newTrigger.getEndTime());
+    trigger.field(TRIGGER_FINAL_FIRE_TIME, newTrigger.getFinalFireTime());
+    trigger.field(TRIGGER_FIRE_INSTANCE_ID, newTrigger.getFireInstanceId());
+    trigger.field(Constants.TRIGGER_JOB_ID, jobId);
+    trigger.field(KEY_NAME, newTrigger.getKey().getName());
+    trigger.field(KEY_GROUP, newTrigger.getKey().getGroup());
+    trigger.field(TRIGGER_MISFIRE_INSTRUCTION, newTrigger.getMisfireInstruction());
+    trigger.field(Constants.TRIGGER_NEXT_FIRE_TIME, newTrigger.getNextFireTime());
+    trigger.field(TRIGGER_PREVIOUS_FIRE_TIME, newTrigger.getPreviousFireTime());
+    trigger.field(TRIGGER_PRIORITY, newTrigger.getPriority());
+    trigger.field(TRIGGER_START_TIME, newTrigger.getStartTime());
+    return trigger;
+  }
 
-        loadCommonProperties(triggerKey, triggerDoc, trigger);
-
-        loadJobData(triggerDoc, trigger);
-
-        loadStartAndEndTimes(triggerDoc, trigger);
-
-        tpd.setExtraPropertiesAfterInstantiation(trigger, triggerDoc);
-
-        ODocument job = jobDao.getById(triggerDoc.field(Constants.TRIGGER_JOB_ID));
-        if (job != null) {
-          String keyName = job.field(KEY_NAME);
-          String keyGroup = job.field(KEY_GROUP);
-           trigger.setJobKey(new JobKey(keyName, keyGroup));
-            return trigger;
-        } else {
-            // job was deleted
-            return null;
-        }
+  private OperableTrigger createNewInstance(ODocument triggerDoc) throws JobPersistenceException {
+    String triggerClassName = triggerDoc.field(TRIGGER_CLASS);
+    try {
+      @SuppressWarnings("unchecked")
+      Class<OperableTrigger> triggerClass =
+          (Class<OperableTrigger>) getTriggerClassLoader().loadClass(triggerClassName);
+      return triggerClass.newInstance();
+    } catch (ClassNotFoundException e) {
+      throw new JobPersistenceException("Could not find trigger class " + triggerClassName);
+    } catch (Exception e) {
+      throw new JobPersistenceException("Could not instantiate trigger class " + triggerClassName);
     }
+  }
 
-    public OperableTrigger toTrigger(ODocument doc) throws JobPersistenceException {
-        TriggerKey key = new TriggerKey((String)doc.field(KEY_NAME), (String)doc.field(KEY_GROUP));
-        return toTrigger(key, doc);
+  private ClassLoader getTriggerClassLoader() {
+    return Job.class.getClassLoader();
+  }
+
+  private void loadCommonProperties(TriggerKey triggerKey, ODocument triggerDoc,
+      OperableTrigger trigger) {
+    trigger.setKey(triggerKey);
+    trigger.setCalendarName((String) triggerDoc.field(TRIGGER_CALENDAR_NAME));
+    trigger.setDescription((String) triggerDoc.field(TRIGGER_DESCRIPTION));
+    trigger.setFireInstanceId((String) triggerDoc.field(TRIGGER_FIRE_INSTANCE_ID));
+    trigger.setMisfireInstruction((Integer) triggerDoc.field(TRIGGER_MISFIRE_INSTRUCTION));
+    trigger.setNextFireTime((Date) triggerDoc.field(Constants.TRIGGER_NEXT_FIRE_TIME));
+    trigger.setPreviousFireTime((Date) triggerDoc.field(TRIGGER_PREVIOUS_FIRE_TIME));
+    trigger.setPriority((Integer) triggerDoc.field(TRIGGER_PRIORITY));
+  }
+
+  private void loadJobData(ODocument triggerDoc, OperableTrigger trigger)
+      throws JobPersistenceException {
+    String jobDataString = triggerDoc.field(Constants.JOB_DATA);
+
+    if (jobDataString != null) {
+      try {
+        SerialUtils.deserialize(trigger.getJobDataMap(), jobDataString);
+      } catch (IOException e) {
+        throw new JobPersistenceException(
+            "Could not deserialize job data for trigger " + trigger.getClass().getName());
+      }
     }
+  }
 
-    private ODocument convertToDocument(OperableTrigger newTrigger, ORID jobId) {
-        ODocument trigger = new ODocument();
-        trigger.field(Constants.TRIGGER_STATE, Constants.STATE_WAITING);
-        trigger.field(TRIGGER_CALENDAR_NAME, newTrigger.getCalendarName());
-        trigger.field(TRIGGER_CLASS, newTrigger.getClass().getName());
-        trigger.field(TRIGGER_DESCRIPTION, newTrigger.getDescription());
-        trigger.field(TRIGGER_END_TIME, newTrigger.getEndTime());
-        trigger.field(TRIGGER_FINAL_FIRE_TIME, newTrigger.getFinalFireTime());
-        trigger.field(TRIGGER_FIRE_INSTANCE_ID, newTrigger.getFireInstanceId());
-        trigger.field(Constants.TRIGGER_JOB_ID, jobId);
-        trigger.field(KEY_NAME, newTrigger.getKey().getName());
-        trigger.field(KEY_GROUP, newTrigger.getKey().getGroup());
-        trigger.field(TRIGGER_MISFIRE_INSTRUCTION, newTrigger.getMisfireInstruction());
-        trigger.field(Constants.TRIGGER_NEXT_FIRE_TIME, newTrigger.getNextFireTime());
-        trigger.field(TRIGGER_PREVIOUS_FIRE_TIME, newTrigger.getPreviousFireTime());
-        trigger.field(TRIGGER_PRIORITY, newTrigger.getPriority());
-        trigger.field(TRIGGER_START_TIME, newTrigger.getStartTime());
-        return trigger;
+  private void loadStartAndEndTimes(ODocument triggerDoc, OperableTrigger trigger) {
+    loadStartAndEndTime(triggerDoc, trigger);
+    loadStartAndEndTime(triggerDoc, trigger);
+  }
+
+  private void loadStartAndEndTime(ODocument triggerDoc, OperableTrigger trigger) {
+    try {
+      trigger.setStartTime((Date) triggerDoc.field(TRIGGER_START_TIME));
+      trigger.setEndTime((Date) triggerDoc.field(TRIGGER_END_TIME));
+    } catch (IllegalArgumentException e) {
+      // Ignore illegal arg exceptions thrown by triggers doing JIT validation
+      // of start and endtime
+      log.warn("Trigger had illegal start / end time combination: {}", trigger.getKey(), e);
     }
-
-    private OperableTrigger createNewInstance(ODocument triggerDoc) throws JobPersistenceException {
-        String triggerClassName = triggerDoc.field(TRIGGER_CLASS);
-        try {
-            @SuppressWarnings("unchecked")
-            Class<OperableTrigger> triggerClass = (Class<OperableTrigger>) getTriggerClassLoader()
-                    .loadClass(triggerClassName);
-            return triggerClass.newInstance();
-        } catch (ClassNotFoundException e) {
-            throw new JobPersistenceException("Could not find trigger class " + triggerClassName);
-        } catch (Exception e) {
-            throw new JobPersistenceException("Could not instantiate trigger class " + triggerClassName);
-        }
-    }
-
-    private ClassLoader getTriggerClassLoader() {
-        return Job.class.getClassLoader();
-    }
-
-    private void loadCommonProperties(TriggerKey triggerKey, ODocument triggerDoc, OperableTrigger trigger) {
-        trigger.setKey(triggerKey);
-        trigger.setCalendarName((String)triggerDoc.field(TRIGGER_CALENDAR_NAME));
-        trigger.setDescription((String)triggerDoc.field(TRIGGER_DESCRIPTION));
-        trigger.setFireInstanceId((String)triggerDoc.field(TRIGGER_FIRE_INSTANCE_ID));
-        trigger.setMisfireInstruction((Integer)triggerDoc.field(TRIGGER_MISFIRE_INSTRUCTION));
-        trigger.setNextFireTime(triggerDoc.getDate(Constants.TRIGGER_NEXT_FIRE_TIME));
-        trigger.setPreviousFireTime(triggerDoc.getDate(TRIGGER_PREVIOUS_FIRE_TIME));
-        trigger.setPriority((Integer)triggerDoc.field(TRIGGER_PRIORITY));
-    }
-
-    private void loadJobData(ODocument triggerDoc, OperableTrigger trigger)
-            throws JobPersistenceException {
-        String jobDataString = triggerDoc.field(Constants.JOB_DATA);
-
-        if (jobDataString != null) {
-            try {
-                SerialUtils.deserialize(trigger.getJobDataMap(), jobDataString);
-            } catch (IOException e) {
-                throw new JobPersistenceException("Could not deserialize job data for trigger "
-                        + trigger.getClass().getName());
-            }
-        }
-    }
-
-    private void loadStartAndEndTimes(ODocument triggerDoc, OperableTrigger trigger) {
-        loadStartAndEndTime(triggerDoc, trigger);
-        loadStartAndEndTime(triggerDoc, trigger);
-    }
-
-    private void loadStartAndEndTime(ODocument triggerDoc, OperableTrigger trigger) {
-        try {
-            trigger.setStartTime(triggerDoc.getDate(TRIGGER_START_TIME));
-            trigger.setEndTime(triggerDoc.getDate(TRIGGER_END_TIME));
-        } catch (IllegalArgumentException e) {
-            //Ignore illegal arg exceptions thrown by triggers doing JIT validation of start and endtime
-            log.warn("Trigger had illegal start / end time combination: {}", trigger.getKey(), e);
-        }
-    }
+  }
 }

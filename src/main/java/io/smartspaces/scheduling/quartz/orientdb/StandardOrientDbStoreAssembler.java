@@ -32,11 +32,11 @@ import io.smartspaces.scheduling.quartz.orientdb.cluster.RecoveryTriggerFactory;
 import io.smartspaces.scheduling.quartz.orientdb.cluster.TriggerRecoverer;
 import io.smartspaces.scheduling.quartz.orientdb.dao.StandardCalendarDao;
 import io.smartspaces.scheduling.quartz.orientdb.dao.StandardJobDao;
-import io.smartspaces.scheduling.quartz.orientdb.dao.LocksDao;
-import io.smartspaces.scheduling.quartz.orientdb.dao.PausedJobGroupsDao;
-import io.smartspaces.scheduling.quartz.orientdb.dao.PausedTriggerGroupsDao;
-import io.smartspaces.scheduling.quartz.orientdb.dao.SchedulerDao;
-import io.smartspaces.scheduling.quartz.orientdb.dao.TriggerDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardLocksDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardPausedJobGroupsDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardPausedTriggerGroupsDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardSchedulerDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardTriggerDao;
 import io.smartspaces.scheduling.quartz.orientdb.db.StandardOrientDbConnector;
 import io.smartspaces.scheduling.quartz.orientdb.trigger.MisfireHandler;
 import io.smartspaces.scheduling.quartz.orientdb.trigger.TriggerConverter;
@@ -55,11 +55,11 @@ public class StandardOrientDbStoreAssembler {
 
   private StandardCalendarDao calendarDao;
   private StandardJobDao jobDao;
-  private LocksDao locksDao;
-  private SchedulerDao schedulerDao;
-  private PausedJobGroupsDao pausedJobGroupsDao;
-  private PausedTriggerGroupsDao pausedTriggerGroupsDao;
-  private TriggerDao triggerDao;
+  private StandardLocksDao locksDao;
+  private StandardSchedulerDao schedulerDao;
+  private StandardPausedJobGroupsDao pausedJobGroupsDao;
+  private StandardPausedTriggerGroupsDao pausedTriggerGroupsDao;
+  private StandardTriggerDao triggerDao;
 
   public TriggerRecoverer triggerRecoverer;
   public CheckinExecutor checkinExecutor;
@@ -70,8 +70,6 @@ public class StandardOrientDbStoreAssembler {
   public void build(OrientDbJobStore jobStore, ClassLoadHelper loadHelper,
       SchedulerSignaler signaler) throws SchedulerConfigException {
     orientDbConnector = createOrientDbConnector(jobStore);
-
-    //db = orientdbConnector.selectDatabase(jobStore.dbName);
 
     jobDao = createJobDao(jobStore, loadHelper);
 
@@ -116,23 +114,23 @@ public class StandardOrientDbStoreAssembler {
     return jobDao;
   }
 
-  public LocksDao getLocksDao() {
+  public StandardLocksDao getLocksDao() {
     return locksDao;
   }
 
-  public SchedulerDao getSchedulerDao() {
+  public StandardSchedulerDao getSchedulerDao() {
     return schedulerDao;
   }
 
-  public PausedJobGroupsDao getPausedJobGroupsDao() {
+  public StandardPausedJobGroupsDao getPausedJobGroupsDao() {
     return pausedJobGroupsDao;
   }
 
-  public PausedTriggerGroupsDao getPausedTriggerGroupsDao() {
+  public StandardPausedTriggerGroupsDao getPausedTriggerGroupsDao() {
     return pausedTriggerGroupsDao;
   }
 
-  public TriggerDao getTriggerDao() {
+  public StandardTriggerDao getTriggerDao() {
     return triggerDao;
   }
 
@@ -142,20 +140,20 @@ public class StandardOrientDbStoreAssembler {
   }
 
   private StandardCalendarDao createCalendarDao(OrientDbJobStore jobStore) {
-    return new StandardCalendarDao(getCollection(jobStore, "calendars"));
+    return new StandardCalendarDao(this);
   }
 
   private StandardJobDao createJobDao(OrientDbJobStore jobStore, ClassLoadHelper loadHelper) {
     JobConverter jobConverter = new JobConverter(jobStore.getClassLoaderHelper(loadHelper));
-    return new StandardJobDao(getCollection(jobStore, "jobs"), queryHelper, jobConverter);
+    return new StandardJobDao(this, queryHelper, jobConverter);
   }
 
   private JobCompleteHandler createJobCompleteHandler(SchedulerSignaler signaler) {
     return new JobCompleteHandler(persister, signaler, jobDao, locksDao, triggerDao);
   }
 
-  private LocksDao createLocksDao(OrientDbJobStore jobStore) {
-    return new LocksDao(getCollection(jobStore, "locks"), Clock.SYSTEM_CLOCK, jobStore.instanceId);
+  private StandardLocksDao createLocksDao(OrientDbJobStore jobStore) {
+    return new StandardLocksDao(this, Clock.SYSTEM_CLOCK, jobStore.instanceId);
   }
 
   private LockManager createLockManager(OrientDbJobStore jobStore) {
@@ -171,8 +169,8 @@ public class StandardOrientDbStoreAssembler {
 
   private StandardOrientDbConnector createOrientDbConnector(OrientDbJobStore jobStore)
       throws SchedulerConfigException {
-    return StandardOrientDbConnector.builder().withClient(jobStore.mongo).withUri(jobStore.orientdbUri)
-        .withCredentials(jobStore.username, jobStore.password).withAddresses(jobStore.addresses)
+    return StandardOrientDbConnector.builder().withUri(jobStore.orientdbUri)
+        .withCredentials(jobStore.username, jobStore.password)
         .withDatabaseName(jobStore.dbName).withAuthDatabaseName(jobStore.authDbName)
         .withMaxConnectionsPerHost(jobStore.mongoOptionMaxConnectionsPerHost)
         .withConnectTimeoutMillis(jobStore.mongoOptionConnectTimeoutMillis)
@@ -184,16 +182,16 @@ public class StandardOrientDbStoreAssembler {
         .withWriteTimeout(jobStore.mongoOptionWriteConcernTimeoutMillis).build();
   }
 
-  private PausedJobGroupsDao createPausedJobGroupsDao(OrientDbJobStore jobStore) {
-    return new PausedJobGroupsDao(getCollection(jobStore, "paused_job_groups"));
+  private StandardPausedJobGroupsDao createPausedJobGroupsDao(OrientDbJobStore jobStore) {
+    return new StandardPausedJobGroupsDao(this, queryHelper);
   }
 
-  private PausedTriggerGroupsDao createPausedTriggerGroupsDao(OrientDbJobStore jobStore) {
-    return new PausedTriggerGroupsDao(getCollection(jobStore, "paused_trigger_groups"));
+  private StandardPausedTriggerGroupsDao createPausedTriggerGroupsDao(OrientDbJobStore jobStore) {
+    return new StandardPausedTriggerGroupsDao(this, queryHelper);
   }
 
-  private SchedulerDao createSchedulerDao(OrientDbJobStore jobStore) {
-    return new SchedulerDao(getCollection(jobStore, "schedulers"), jobStore.schedulerName,
+  private StandardSchedulerDao createSchedulerDao(OrientDbJobStore jobStore) {
+    return new StandardSchedulerDao(this, jobStore.schedulerName,
         jobStore.instanceId, jobStore.clusterCheckinIntervalMillis, Clock.SYSTEM_CLOCK);
   }
 
@@ -201,8 +199,8 @@ public class StandardOrientDbStoreAssembler {
     return new TriggerAndJobPersister(triggerDao, jobDao, triggerConverter);
   }
 
-  private TriggerDao createTriggerDao(OrientDbJobStore jobStore) {
-    return new TriggerDao(getCollection(jobStore, "triggers"), queryHelper, triggerConverter);
+  private StandardTriggerDao createTriggerDao(OrientDbJobStore jobStore) {
+    return new StandardTriggerDao(this, queryHelper, triggerConverter);
   }
 
   private TriggerRunner createTriggerRunner(MisfireHandler misfireHandler) {
@@ -211,12 +209,6 @@ public class StandardOrientDbStoreAssembler {
   }
 
   private TriggerStateManager createTriggerStateManager() {
-    return new TriggerStateManager(triggerDao, jobDao, pausedJobGroupsDao, pausedTriggerGroupsDao,
-        queryHelper);
+    return new TriggerStateManager(triggerDao, jobDao, pausedJobGroupsDao, pausedTriggerGroupsDao);
   }
-
-  private MongoCollection<Document> getCollection(OrientDbJobStore jobStore, String name) {
-    return db.getCollection(jobStore.collectionPrefix + name);
-  }
-
 }

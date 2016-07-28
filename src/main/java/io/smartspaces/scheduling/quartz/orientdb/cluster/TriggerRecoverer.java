@@ -9,24 +9,24 @@ import org.slf4j.LoggerFactory;
 import io.smartspaces.scheduling.quartz.orientdb.LockManager;
 import io.smartspaces.scheduling.quartz.orientdb.TriggerAndJobPersister;
 import io.smartspaces.scheduling.quartz.orientdb.dao.StandardJobDao;
-import io.smartspaces.scheduling.quartz.orientdb.dao.LocksDao;
-import io.smartspaces.scheduling.quartz.orientdb.dao.TriggerDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardLocksDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardTriggerDao;
 import io.smartspaces.scheduling.quartz.orientdb.trigger.MisfireHandler;
 
 public class TriggerRecoverer {
 
     private static final Logger log = LoggerFactory.getLogger(TriggerRecoverer.class);
 
-    private final LocksDao locksDao;
+    private final StandardLocksDao locksDao;
     private final TriggerAndJobPersister persister;
     private final LockManager lockManager;
-    private final TriggerDao triggerDao;
+    private final StandardTriggerDao triggerDao;
     private final StandardJobDao jobDao;
     private final RecoveryTriggerFactory recoveryTriggerFactory;
     private final MisfireHandler misfireHandler;
 
-    public TriggerRecoverer(LocksDao locksDao, TriggerAndJobPersister persister,
-                            LockManager lockManager, TriggerDao triggerDao,
+    public TriggerRecoverer(StandardLocksDao locksDao, TriggerAndJobPersister persister,
+                            LockManager lockManager, StandardTriggerDao triggerDao,
                             StandardJobDao jobDao, RecoveryTriggerFactory recoveryTriggerFactory,
                             MisfireHandler misfireHandler) {
         this.locksDao = locksDao;

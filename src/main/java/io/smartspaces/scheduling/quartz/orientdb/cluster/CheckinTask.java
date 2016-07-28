@@ -2,7 +2,7 @@ package io.smartspaces.scheduling.quartz.orientdb.cluster;
 
 import com.mongodb.MongoException;
 
-import io.smartspaces.scheduling.quartz.orientdb.dao.SchedulerDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardSchedulerDao;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,10 +29,10 @@ public class CheckinTask implements Runnable {
         }
     };
 
-    private SchedulerDao schedulerDao;
+    private StandardSchedulerDao schedulerDao;
     private Runnable errorhandler = DEFAULT_ERROR_HANDLER;
 
-    public CheckinTask(SchedulerDao schedulerDao) {
+    public CheckinTask(StandardSchedulerDao schedulerDao) {
         this.schedulerDao = schedulerDao;
     }
 

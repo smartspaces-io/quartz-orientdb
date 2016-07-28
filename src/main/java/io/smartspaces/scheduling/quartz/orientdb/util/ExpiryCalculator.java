@@ -10,18 +10,18 @@ import com.orientechnologies.orient.core.record.impl.ODocument;
 
 import io.smartspaces.scheduling.quartz.orientdb.Constants;
 import io.smartspaces.scheduling.quartz.orientdb.cluster.Scheduler;
-import io.smartspaces.scheduling.quartz.orientdb.dao.SchedulerDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardSchedulerDao;
 
 public class ExpiryCalculator {
 
     private static final Logger log = LoggerFactory.getLogger(ExpiryCalculator.class);
 
-    private final SchedulerDao schedulerDao;
+    private final StandardSchedulerDao schedulerDao;
     private final Clock clock;
     private final long jobTimeoutMillis;
     private final long triggerTimeoutMillis;
 
-    public ExpiryCalculator(SchedulerDao schedulerDao, Clock clock,
+    public ExpiryCalculator(StandardSchedulerDao schedulerDao, Clock clock,
                             long jobTimeoutMillis, long triggerTimeoutMillis) {
         this.schedulerDao = schedulerDao;
         this.clock = clock;
