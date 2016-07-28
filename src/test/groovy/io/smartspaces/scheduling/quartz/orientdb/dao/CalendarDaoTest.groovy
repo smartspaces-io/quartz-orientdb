@@ -2,7 +2,7 @@ package io.smartspaces.scheduling.quartz.orientdb.dao
 
 import io.smartspaces.scheduling.quartz.orientdb.MongoHelper
 
-import io.smartspaces.scheduling.quartz.orientdb.dao.CalendarDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardCalendarDao;
 
 import static io.smartspaces.scheduling.quartz.orientdb.dao.CalendarDao.CALENDAR_NAME;
 import static io.smartspaces.scheduling.quartz.orientdb.dao.CalendarDao.CALENDAR_SERIALIZED_OBJECT;
@@ -10,13 +10,13 @@ import static io.smartspaces.scheduling.quartz.orientdb.dao.CalendarDao.CALENDAR
 import org.quartz.impl.calendar.DailyCalendar
 import spock.lang.Specification;
 
-import static io.smartspaces.scheduling.quartz.orientdb.dao.CalendarDao.CALENDAR_NAME
-import static io.smartspaces.scheduling.quartz.orientdb.dao.CalendarDao.CALENDAR_SERIALIZED_OBJECT
+import static io.smartspaces.scheduling.quartz.orientdb.dao.StandardCalendarDao.CALENDAR_NAME
+import static io.smartspaces.scheduling.quartz.orientdb.dao.StandardCalendarDao.CALENDAR_SERIALIZED_OBJECT
 
 
 class CalendarDaoTest extends Specification {
 
-    def dao = new CalendarDao(MongoHelper.getCalendarsColl())
+    def dao = new StandardCalendarDao(MongoHelper.getCalendarsColl())
 
     def setup() {
         MongoHelper.purgeCollections()

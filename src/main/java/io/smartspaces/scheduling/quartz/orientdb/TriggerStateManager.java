@@ -28,7 +28,7 @@ import org.quartz.Trigger.TriggerState;
 import org.quartz.TriggerKey;
 import org.quartz.impl.matchers.GroupMatcher;
 
-import io.smartspaces.scheduling.quartz.orientdb.dao.JobDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardJobDao;
 import io.smartspaces.scheduling.quartz.orientdb.dao.PausedJobGroupsDao;
 import io.smartspaces.scheduling.quartz.orientdb.dao.PausedTriggerGroupsDao;
 import io.smartspaces.scheduling.quartz.orientdb.dao.TriggerDao;
@@ -39,12 +39,12 @@ import io.smartspaces.scheduling.quartz.orientdb.util.TriggerGroupHelper;
 public class TriggerStateManager {
 
   private final TriggerDao triggerDao;
-  private final JobDao jobDao;
+  private final StandardJobDao jobDao;
   private PausedJobGroupsDao pausedJobGroupsDao;
   private final PausedTriggerGroupsDao pausedTriggerGroupsDao;
   private final QueryHelper queryHelper;
 
-  public TriggerStateManager(TriggerDao triggerDao, JobDao jobDao,
+  public TriggerStateManager(TriggerDao triggerDao, StandardJobDao jobDao,
       PausedJobGroupsDao pausedJobGroupsDao, PausedTriggerGroupsDao pausedTriggerGroupsDao,
       QueryHelper queryHelper) {
     this.triggerDao = triggerDao;

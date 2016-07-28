@@ -213,7 +213,7 @@ public class OrientDbJobStore implements JobStore, Constants {
 
   @Override
   public JobDetail retrieveJob(JobKey jobKey) throws JobPersistenceException {
-    return assembler.jobDao.retrieveJob(jobKey);
+    return assembler.getJobDao().retrieveJob(jobKey);
   }
 
   @Override
@@ -240,26 +240,26 @@ public class OrientDbJobStore implements JobStore, Constants {
 
   @Override
   public OperableTrigger retrieveTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-    return assembler.triggerDao.getTrigger(triggerKey);
+    return assembler.getTriggerDao().getTrigger(triggerKey);
   }
 
   @Override
   public boolean checkExists(JobKey jobKey) throws JobPersistenceException {
-    return assembler.jobDao.exists(jobKey);
+    return assembler.getJobDao().exists(jobKey);
   }
 
   @Override
   public boolean checkExists(TriggerKey triggerKey) throws JobPersistenceException {
-    return assembler.triggerDao.exists(Keys.toFilter(triggerKey));
+    return assembler.getTriggerDao().exists(Keys.toFilter(triggerKey));
   }
 
   @Override
   public void clearAllSchedulingData() throws JobPersistenceException {
-    assembler.jobDao.clear();
-    assembler.triggerDao.clear();
-    assembler.calendarDao.clear();
-    assembler.pausedJobGroupsDao.remove();
-    assembler.pausedTriggerGroupsDao.remove();
+    assembler.getJobDao().clear();
+    assembler.getTriggerDao().clear();
+    assembler.getCalendarDao().clear();
+    assembler.getPausedJobGroupsDao().remove();
+    assembler.getPausedTriggerGroupsDao().remove();
   }
 
   @Override
@@ -270,53 +270,53 @@ public class OrientDbJobStore implements JobStore, Constants {
       throw new UnsupportedOperationException("Updating triggers is not supported.");
     }
 
-    assembler.calendarDao.store(name, calendar);
+    assembler.getCalendarDao().store(name, calendar);
   }
 
   @Override
   public boolean removeCalendar(String calName) throws JobPersistenceException {
-    return assembler.calendarDao.remove(calName);
+    return assembler.getCalendarDao().remove(calName);
   }
 
   @Override
   public Calendar retrieveCalendar(String calName) throws JobPersistenceException {
-    return assembler.calendarDao.retrieveCalendar(calName);
+    return assembler.getCalendarDao().retrieveCalendar(calName);
   }
 
   @Override
   public int getNumberOfJobs() throws JobPersistenceException {
-    return assembler.jobDao.getCount();
+    return assembler.getJobDao().getCount();
   }
 
   @Override
   public int getNumberOfTriggers() throws JobPersistenceException {
-    return assembler.triggerDao.getCount();
+    return assembler.getTriggerDao().getCount();
   }
 
   @Override
   public int getNumberOfCalendars() throws JobPersistenceException {
-    return assembler.calendarDao.getCount();
+    return assembler.getCalendarDao().getCount();
   }
 
   @Override
   public Set<JobKey> getJobKeys(GroupMatcher<JobKey> matcher) throws JobPersistenceException {
-    return assembler.jobDao.getJobKeys(matcher);
+    return assembler.getJobDao().getJobKeys(matcher);
   }
 
   @Override
   public Set<TriggerKey> getTriggerKeys(GroupMatcher<TriggerKey> matcher)
       throws JobPersistenceException {
-    return assembler.triggerDao.getTriggerKeys(matcher);
+    return assembler.getTriggerDao().getTriggerKeys(matcher);
   }
 
   @Override
   public List<String> getJobGroupNames() throws JobPersistenceException {
-    return assembler.jobDao.getGroupNames();
+    return assembler.getJobDao().getGroupNames();
   }
 
   @Override
   public List<String> getTriggerGroupNames() throws JobPersistenceException {
-    return assembler.triggerDao.getGroupNames();
+    return assembler.getTriggerDao().getGroupNames();
   }
 
   @Override
@@ -363,7 +363,7 @@ public class OrientDbJobStore implements JobStore, Constants {
 
   // only for tests
   public Set<String> getPausedJobGroups() throws JobPersistenceException {
-    return assembler.pausedJobGroupsDao.getPausedGroups();
+    return assembler.getPausedJobGroupsDao().getPausedGroups();
   }
 
   @Override
@@ -441,22 +441,6 @@ public class OrientDbJobStore implements JobStore, Constants {
     this.addresses = addresses.split(",");
   }
 
-  public MongoCollection<Document> getJobCollection() {
-    return assembler.jobDao.getCollection();
-  }
-
-  public MongoCollection<Document> getTriggerCollection() {
-    return assembler.triggerDao.getCollection();
-  }
-
-  public MongoCollection<Document> getCalendarCollection() {
-    return assembler.calendarDao.getCollection();
-  }
-
-  public MongoCollection<Document> getLocksCollection() {
-    return assembler.locksDao.getCollection();
-  }
-
   public String getDbName() {
     return dbName;
   }
@@ -511,18 +495,18 @@ public class OrientDbJobStore implements JobStore, Constants {
       // then name. The previous indexes are removed after we have
       // "ensured" the new ones.
 
-      assembler.jobDao.createIndex();
-      assembler.triggerDao.createIndex();
-      assembler.locksDao.createIndex(isClustered());
-      assembler.calendarDao.createIndex();
-      assembler.schedulerDao.createIndex();
+      assembler.getJobDao().createIndex();
+      assembler.getTriggerDao().createIndex();
+      assembler.getLocksDao().createIndex(isClustered());
+      assembler.getCalendarDao().createIndex();
+      assembler.getSchedulerDao().createIndex();
 
       try {
         // Drop the old indexes that were declared as name then group
         // rather than group then name
-        assembler.jobDao.dropIndex();
-        assembler.triggerDao.dropIndex();
-        assembler.locksDao.dropIndex();
+        assembler.getJobDao().dropIndex();
+        assembler.getTriggerDao().dropIndex();
+        assembler.getLocksDao().dropIndex();
       } catch (MongoCommandException cfe) {
         // Ignore, the old indexes have already been removed
       }

@@ -18,24 +18,27 @@
 
 package io.smartspaces.scheduling.quartz.orientdb.dao;
 
-import com.mongodb.Block;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.model.*;
-import com.mongodb.client.result.DeleteResult;
-import com.mongodb.client.result.UpdateResult;
+import static com.mongodb.client.model.Sorts.ascending;
 
-import io.smartspaces.scheduling.quartz.orientdb.cluster.Scheduler;
-import io.smartspaces.scheduling.quartz.orientdb.util.Clock;
+import java.util.LinkedList;
+import java.util.List;
 
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.LinkedList;
-import java.util.List;
+import com.mongodb.Block;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.IndexOptions;
+import com.mongodb.client.model.Projections;
+import com.mongodb.client.model.UpdateOptions;
+import com.mongodb.client.result.DeleteResult;
+import com.mongodb.client.result.UpdateResult;
 
-import static com.mongodb.client.model.Sorts.ascending;
+import io.smartspaces.scheduling.quartz.orientdb.cluster.Scheduler;
+import io.smartspaces.scheduling.quartz.orientdb.util.Clock;
 
 public class SchedulerDao {
 
@@ -63,10 +66,6 @@ public class SchedulerDao {
     this.schedulerFilter = createSchedulerFilter(schedulerName, instanceId);
     this.clusterCheckinIntervalMillis = clusterCheckinIntervalMillis;
     this.clock = clock;
-  }
-
-  public MongoCollection<Document> getCollection() {
-    return schedulerCollection;
   }
 
   public void createIndex() {

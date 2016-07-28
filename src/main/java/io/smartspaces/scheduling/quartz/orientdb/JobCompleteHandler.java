@@ -26,7 +26,7 @@ import org.quartz.spi.SchedulerSignaler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.smartspaces.scheduling.quartz.orientdb.dao.JobDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardJobDao;
 import io.smartspaces.scheduling.quartz.orientdb.dao.LocksDao;
 import io.smartspaces.scheduling.quartz.orientdb.dao.TriggerDao;
 
@@ -37,12 +37,12 @@ public class JobCompleteHandler {
 
     private final TriggerAndJobPersister persister;
     private final SchedulerSignaler signaler;
-    private final JobDao jobDao;
+    private final StandardJobDao jobDao;
     private final LocksDao locksDao;
     private TriggerDao triggerDao;
 
     public JobCompleteHandler(TriggerAndJobPersister persister, SchedulerSignaler signaler,
-                              JobDao jobDao, LocksDao locksDao, TriggerDao triggerDao) {
+                              StandardJobDao jobDao, LocksDao locksDao, TriggerDao triggerDao) {
         this.persister = persister;
         this.signaler = signaler;
         this.jobDao = jobDao;

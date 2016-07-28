@@ -30,8 +30,8 @@ import io.smartspaces.scheduling.quartz.orientdb.cluster.CheckinExecutor;
 import io.smartspaces.scheduling.quartz.orientdb.cluster.CheckinTask;
 import io.smartspaces.scheduling.quartz.orientdb.cluster.RecoveryTriggerFactory;
 import io.smartspaces.scheduling.quartz.orientdb.cluster.TriggerRecoverer;
-import io.smartspaces.scheduling.quartz.orientdb.dao.CalendarDao;
-import io.smartspaces.scheduling.quartz.orientdb.dao.JobDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardCalendarDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardJobDao;
 import io.smartspaces.scheduling.quartz.orientdb.dao.LocksDao;
 import io.smartspaces.scheduling.quartz.orientdb.dao.PausedJobGroupsDao;
 import io.smartspaces.scheduling.quartz.orientdb.dao.PausedTriggerGroupsDao;
@@ -53,8 +53,8 @@ public class StandardOrientDbStoreAssembler {
   public TriggerRunner triggerRunner;
   public TriggerAndJobPersister persister;
 
-  private CalendarDao calendarDao;
-  private JobDao jobDao;
+  private StandardCalendarDao calendarDao;
+  private StandardJobDao jobDao;
   private LocksDao locksDao;
   private SchedulerDao schedulerDao;
   private PausedJobGroupsDao pausedJobGroupsDao;
@@ -108,11 +108,11 @@ public class StandardOrientDbStoreAssembler {
     return orientDbConnector;
   }
 
-  public CalendarDao getCalendarDao() {
+  public StandardCalendarDao getCalendarDao() {
     return calendarDao;
   }
 
-  public JobDao getJobDao() {
+  public StandardJobDao getJobDao() {
     return jobDao;
   }
 
@@ -141,13 +141,13 @@ public class StandardOrientDbStoreAssembler {
         jobStore.instanceId);
   }
 
-  private CalendarDao createCalendarDao(OrientDbJobStore jobStore) {
-    return new CalendarDao(getCollection(jobStore, "calendars"));
+  private StandardCalendarDao createCalendarDao(OrientDbJobStore jobStore) {
+    return new StandardCalendarDao(getCollection(jobStore, "calendars"));
   }
 
-  private JobDao createJobDao(OrientDbJobStore jobStore, ClassLoadHelper loadHelper) {
+  private StandardJobDao createJobDao(OrientDbJobStore jobStore, ClassLoadHelper loadHelper) {
     JobConverter jobConverter = new JobConverter(jobStore.getClassLoaderHelper(loadHelper));
-    return new JobDao(getCollection(jobStore, "jobs"), queryHelper, jobConverter);
+    return new StandardJobDao(getCollection(jobStore, "jobs"), queryHelper, jobConverter);
   }
 
   private JobCompleteHandler createJobCompleteHandler(SchedulerSignaler signaler) {

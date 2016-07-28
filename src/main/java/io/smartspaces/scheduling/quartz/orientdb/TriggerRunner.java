@@ -41,8 +41,8 @@ import org.slf4j.LoggerFactory;
 import com.mongodb.MongoWriteException;
 
 import io.smartspaces.scheduling.quartz.orientdb.cluster.TriggerRecoverer;
-import io.smartspaces.scheduling.quartz.orientdb.dao.CalendarDao;
-import io.smartspaces.scheduling.quartz.orientdb.dao.JobDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardCalendarDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardJobDao;
 import io.smartspaces.scheduling.quartz.orientdb.dao.LocksDao;
 import io.smartspaces.scheduling.quartz.orientdb.dao.TriggerDao;
 import io.smartspaces.scheduling.quartz.orientdb.trigger.MisfireHandler;
@@ -66,12 +66,12 @@ public class TriggerRunner {
     private TriggerConverter triggerConverter;
     private LockManager lockManager;
     private TriggerRecoverer recoverer;
-    private JobDao jobDao;
+    private StandardJobDao jobDao;
     private LocksDao locksDao;
-    private CalendarDao calendarDao;
+    private StandardCalendarDao calendarDao;
 
-    public TriggerRunner(TriggerAndJobPersister persister, TriggerDao triggerDao, JobDao jobDao, LocksDao locksDao,
-                         CalendarDao calendarDao, MisfireHandler misfireHandler,
+    public TriggerRunner(TriggerAndJobPersister persister, TriggerDao triggerDao, StandardJobDao jobDao, LocksDao locksDao,
+                         StandardCalendarDao calendarDao, MisfireHandler misfireHandler,
                          TriggerConverter triggerConverter, LockManager lockManager,
                          TriggerRecoverer recoverer) {
         this.persister = persister;

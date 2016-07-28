@@ -18,26 +18,28 @@
 
 package io.smartspaces.scheduling.quartz.orientdb.dao;
 
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.model.Filters;
-import org.bson.Document;
-
 import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.KEY_GROUP;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+
+import org.bson.Document;
+
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Filters;
 
 public class PausedJobGroupsDao {
 
-  private MongoCollection<Document> pausedJobGroupsCollection;
+  //private MongoCollection<Document> pausedJobGroupsCollection;
 
   public PausedJobGroupsDao(MongoCollection<Document> pausedJobGroupsCollection) {
     this.pausedJobGroupsCollection = pausedJobGroupsCollection;
   }
 
-  public HashSet<String> getPausedGroups() {
+  public Set<String> getPausedGroups() {
     return pausedJobGroupsCollection.distinct(KEY_GROUP, String.class).into(new HashSet<String>());
   }
 

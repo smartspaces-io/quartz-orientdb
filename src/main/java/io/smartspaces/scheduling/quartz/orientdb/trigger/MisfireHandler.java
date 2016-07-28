@@ -6,7 +6,7 @@ import org.quartz.Trigger;
 import org.quartz.spi.OperableTrigger;
 import org.quartz.spi.SchedulerSignaler;
 
-import io.smartspaces.scheduling.quartz.orientdb.dao.CalendarDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardCalendarDao;
 
 import java.util.Date;
 
@@ -15,11 +15,11 @@ import java.util.Date;
  */
 public class MisfireHandler {
 
-    private final CalendarDao calendarDao;
+    private final StandardCalendarDao calendarDao;
     private final SchedulerSignaler signaler;
     private final long misfireThreshold;
 
-    public MisfireHandler(CalendarDao calendarDao, SchedulerSignaler signaler, long misfireThreshold) {
+    public MisfireHandler(StandardCalendarDao calendarDao, SchedulerSignaler signaler, long misfireThreshold) {
         this.calendarDao = calendarDao;
         this.signaler = signaler;
         this.misfireThreshold = misfireThreshold;

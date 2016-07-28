@@ -150,7 +150,7 @@ public class TriggerDao {
     return referencedTriggers.size() == 1;
   }
 
-  public void insert(Document trigger, Trigger offendingTrigger)
+  public void insert(ODocument trigger, Trigger offendingTrigger)
       throws ObjectAlreadyExistsException {
     try {
       triggerCollection.insertOne(trigger);
