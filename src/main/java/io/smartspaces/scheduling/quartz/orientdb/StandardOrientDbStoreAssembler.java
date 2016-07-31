@@ -46,12 +46,12 @@ import io.smartspaces.scheduling.quartz.orientdb.util.QueryHelper;
 
 public class StandardOrientDbStoreAssembler {
 
-  public StandardOrientDbConnector orientDbConnector;
-  public JobCompleteHandler jobCompleteHandler;
-  public LockManager lockManager;
-  public TriggerStateManager triggerStateManager;
-  public TriggerRunner triggerRunner;
-  public TriggerAndJobPersister persister;
+  private StandardOrientDbConnector orientDbConnector;
+  private JobCompleteHandler jobCompleteHandler;
+  private LockManager lockManager;
+  private TriggerStateManager triggerStateManager;
+  private TriggerRunner triggerRunner;
+  private TriggerAndJobPersister persister;
 
   private StandardCalendarDao calendarDao;
   private StandardJobDao jobDao;
@@ -61,8 +61,8 @@ public class StandardOrientDbStoreAssembler {
   private StandardPausedTriggerGroupsDao pausedTriggerGroupsDao;
   private StandardTriggerDao triggerDao;
 
-  public TriggerRecoverer triggerRecoverer;
-  public CheckinExecutor checkinExecutor;
+  private TriggerRecoverer triggerRecoverer;
+  private CheckinExecutor checkinExecutor;
 
   private QueryHelper queryHelper = new QueryHelper();
   private TriggerConverter triggerConverter;
@@ -104,6 +104,42 @@ public class StandardOrientDbStoreAssembler {
 
   public StandardOrientDbConnector getOrientDbConnector() {
     return orientDbConnector;
+  }
+
+  public JobCompleteHandler getJobCompleteHandler() {
+    return jobCompleteHandler;
+  }
+
+  public LockManager getLockManager() {
+    return lockManager;
+  }
+
+  public TriggerStateManager getTriggerStateManager() {
+    return triggerStateManager;
+  }
+
+  public TriggerRunner getTriggerRunner() {
+    return triggerRunner;
+  }
+
+  public TriggerAndJobPersister getPersister() {
+    return persister;
+  }
+
+  public TriggerRecoverer getTriggerRecoverer() {
+    return triggerRecoverer;
+  }
+
+  public CheckinExecutor getCheckinExecutor() {
+    return checkinExecutor;
+  }
+
+  public QueryHelper getQueryHelper() {
+    return queryHelper;
+  }
+
+  public TriggerConverter getTriggerConverter() {
+    return triggerConverter;
   }
 
   public StandardCalendarDao getCalendarDao() {

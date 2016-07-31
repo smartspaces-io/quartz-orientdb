@@ -114,11 +114,11 @@ public class OrientDbJobStore implements JobStore {
 
     if (isClustered()) {
       try {
-        assembler.triggerRecoverer.recover();
+        assembler.getTriggerRecoverer().recover();
       } catch (JobPersistenceException e) {
         throw new SchedulerConfigException("Cannot recover triggers", e);
       }
-      assembler.checkinExecutor.start();
+      assembler.getCheckinExecutor().start();
     }
 
     ensureIndexes();
@@ -140,8 +140,8 @@ public class OrientDbJobStore implements JobStore {
 
   @Override
   public void shutdown() {
-    assembler.checkinExecutor.shutdown();
-    assembler.orientDbConnector.shutdown();
+    assembler.getCheckinExecutor().shutdown();
+    assembler.getOrientDbConnector().shutdown();
   }
 
   @Override
@@ -186,7 +186,7 @@ public class OrientDbJobStore implements JobStore {
     assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Void>() {
       @Override
       public Void doInTransaction() throws JobPersistenceException {
-        assembler.persister.storeJobAndTrigger(newJob, newTrigger);
+        assembler.getPersister().storeJobAndTrigger(newJob, newTrigger);
 
         return null;
       }
@@ -217,7 +217,7 @@ public class OrientDbJobStore implements JobStore {
     return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Boolean>() {
       @Override
       public Boolean doInTransaction() throws JobPersistenceException {
-        return assembler.persister.removeJob(jobKey);
+        return assembler.getPersister().removeJob(jobKey);
       }
     }).booleanValue();
   }
@@ -227,117 +227,222 @@ public class OrientDbJobStore implements JobStore {
     return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Boolean>() {
       @Override
       public Boolean doInTransaction() throws JobPersistenceException {
-        return assembler.persister.removeJobs(jobKeys);
+        return assembler.getPersister().removeJobs(jobKeys);
       }
     }).booleanValue();
   }
 
   @Override
-  public JobDetail retrieveJob(JobKey jobKey) throws JobPersistenceException {
-    return assembler.getJobDao().retrieveJob(jobKey);
+  public JobDetail retrieveJob(final JobKey jobKey) throws JobPersistenceException {
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<JobDetail>() {
+      @Override
+      public JobDetail doInTransaction() throws JobPersistenceException {
+        return assembler.getJobDao().retrieveJob(jobKey);
+      }
+    });
   }
 
   @Override
-  public void storeTrigger(OperableTrigger newTrigger, boolean replaceExisting)
+  public void storeTrigger(final OperableTrigger newTrigger, final boolean replaceExisting)
       throws JobPersistenceException {
-    assembler.persister.storeTrigger(newTrigger, replaceExisting);
+    assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Void>() {
+      @Override
+      public Void doInTransaction() throws JobPersistenceException {
+        assembler.getPersister().storeTrigger(newTrigger, replaceExisting);
+
+        return null;
+      }
+    });
   }
 
   @Override
-  public boolean removeTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-    return assembler.persister.removeTrigger(triggerKey);
+  public boolean removeTrigger(final TriggerKey triggerKey) throws JobPersistenceException {
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Boolean>() {
+      @Override
+      public Boolean doInTransaction() throws JobPersistenceException {
+        return assembler.getPersister().removeTrigger(triggerKey);
+      }
+    }).booleanValue();
   }
 
   @Override
-  public boolean removeTriggers(List<TriggerKey> triggerKeys) throws JobPersistenceException {
-    return assembler.persister.removeTriggers(triggerKeys);
+  public boolean removeTriggers(final List<TriggerKey> triggerKeys) throws JobPersistenceException {
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Boolean>() {
+      @Override
+      public Boolean doInTransaction() throws JobPersistenceException {
+        return assembler.getPersister().removeTriggers(triggerKeys);
+      }
+    }).booleanValue();
   }
 
   @Override
-  public boolean replaceTrigger(TriggerKey triggerKey, OperableTrigger newTrigger)
+  public boolean replaceTrigger(final TriggerKey triggerKey, final OperableTrigger newTrigger)
       throws JobPersistenceException {
-    return assembler.persister.replaceTrigger(triggerKey, newTrigger);
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Boolean>() {
+      @Override
+      public Boolean doInTransaction() throws JobPersistenceException {
+        return assembler.getPersister().replaceTrigger(triggerKey, newTrigger);
+      }
+    }).booleanValue();
   }
 
   @Override
-  public OperableTrigger retrieveTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-    return assembler.getTriggerDao().getTrigger(triggerKey);
+  public OperableTrigger retrieveTrigger(final TriggerKey triggerKey)
+      throws JobPersistenceException {
+    return assembler.getOrientDbConnector()
+        .doInTransaction(new TransactionMethod<OperableTrigger>() {
+          @Override
+          public OperableTrigger doInTransaction() throws JobPersistenceException {
+            return assembler.getTriggerDao().getTrigger(triggerKey);
+          }
+        });
   }
 
   @Override
-  public boolean checkExists(JobKey jobKey) throws JobPersistenceException {
-    return assembler.getJobDao().exists(jobKey);
+  public boolean checkExists(final JobKey jobKey) throws JobPersistenceException {
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Boolean>() {
+      @Override
+      public Boolean doInTransaction() throws JobPersistenceException {
+        return assembler.getJobDao().exists(jobKey);
+      }
+    }).booleanValue();
   }
 
   @Override
-  public boolean checkExists(TriggerKey triggerKey) throws JobPersistenceException {
-    return assembler.getTriggerDao().exists(triggerKey);
+  public boolean checkExists(final TriggerKey triggerKey) throws JobPersistenceException {
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Boolean>() {
+      @Override
+      public Boolean doInTransaction() throws JobPersistenceException {
+        return assembler.getTriggerDao().exists(triggerKey);
+      }
+    }).booleanValue();
   }
 
   @Override
   public void clearAllSchedulingData() throws JobPersistenceException {
-    assembler.getJobDao().clear();
-    assembler.getTriggerDao().clear();
-    assembler.getCalendarDao().clear();
-    assembler.getPausedJobGroupsDao().remove();
-    assembler.getPausedTriggerGroupsDao().remove();
+    assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Void>() {
+      @Override
+      public Void doInTransaction() throws JobPersistenceException {
+        assembler.getJobDao().removeAll();
+        assembler.getTriggerDao().removeAll();
+        assembler.getCalendarDao().removeAll();
+        assembler.getPausedJobGroupsDao().removeAll();
+        assembler.getPausedTriggerGroupsDao().removeAll();
+
+        return null;
+      }
+    });
   }
 
   @Override
-  public void storeCalendar(String name, Calendar calendar, boolean replaceExisting,
+  public void storeCalendar(final String name, final Calendar calendar, boolean replaceExisting,
       boolean updateTriggers) throws JobPersistenceException {
     // TODO implement updating triggers
     if (updateTriggers) {
       throw new UnsupportedOperationException("Updating triggers is not supported.");
     }
 
-    assembler.getCalendarDao().store(name, calendar);
+    assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Void>() {
+      @Override
+      public Void doInTransaction() throws JobPersistenceException {
+        assembler.getCalendarDao().store(name, calendar);
+
+        return null;
+      }
+    });
   }
 
   @Override
-  public boolean removeCalendar(String calName) throws JobPersistenceException {
-    return assembler.getCalendarDao().remove(calName);
+  public boolean removeCalendar(final String calName) throws JobPersistenceException {
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Boolean>() {
+      @Override
+      public Boolean doInTransaction() throws JobPersistenceException {
+        return assembler.getCalendarDao().remove(calName);
+      }
+    }).booleanValue();
+
   }
 
   @Override
-  public Calendar retrieveCalendar(String calName) throws JobPersistenceException {
-    return assembler.getCalendarDao().retrieveCalendar(calName);
+  public Calendar retrieveCalendar(final String calName) throws JobPersistenceException {
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Calendar>() {
+      @Override
+      public Calendar doInTransaction() throws JobPersistenceException {
+        return assembler.getCalendarDao().retrieveCalendar(calName);
+      }
+    });
   }
 
   @Override
   public int getNumberOfJobs() throws JobPersistenceException {
-    return assembler.getJobDao().getCount();
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Integer>() {
+      @Override
+      public Integer doInTransaction() throws JobPersistenceException {
+        return assembler.getJobDao().getCount();
+      }
+    }).intValue();
   }
 
   @Override
   public int getNumberOfTriggers() throws JobPersistenceException {
-    return assembler.getTriggerDao().getCount();
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Integer>() {
+      @Override
+      public Integer doInTransaction() throws JobPersistenceException {
+        return assembler.getTriggerDao().getCount();
+      }
+    }).intValue();
+  
   }
 
   @Override
   public int getNumberOfCalendars() throws JobPersistenceException {
-    return assembler.getCalendarDao().getCount();
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Integer>() {
+      @Override
+      public Integer doInTransaction() throws JobPersistenceException {
+        return assembler.getCalendarDao().getCount();
+      }
+    }).intValue();
   }
 
   @Override
-  public Set<JobKey> getJobKeys(GroupMatcher<JobKey> matcher) throws JobPersistenceException {
-    return assembler.getJobDao().getJobKeys(matcher);
+  public Set<JobKey> getJobKeys(final GroupMatcher<JobKey> matcher) throws JobPersistenceException {
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Set<JobKey>>() {
+      @Override
+      public Set<JobKey> doInTransaction() throws JobPersistenceException {
+        return assembler.getJobDao().getJobKeys(matcher);
+      }
+    });
   }
 
   @Override
-  public Set<TriggerKey> getTriggerKeys(GroupMatcher<TriggerKey> matcher)
+  public Set<TriggerKey> getTriggerKeys(final GroupMatcher<TriggerKey> matcher)
       throws JobPersistenceException {
-    return assembler.getTriggerDao().getTriggerKeys(matcher);
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Set<TriggerKey>>() {
+      @Override
+      public Set<TriggerKey> doInTransaction() throws JobPersistenceException {
+        return assembler.getTriggerDao().getTriggerKeys(matcher);
+      }
+    });
   }
 
   @Override
   public List<String> getJobGroupNames() throws JobPersistenceException {
-    return assembler.getJobDao().getGroupNames();
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<List<String>>() {
+      @Override
+      public List<String> doInTransaction() throws JobPersistenceException {
+        return assembler.getJobDao().getGroupNames();
+      }
+    });
   }
 
   @Override
   public List<String> getTriggerGroupNames() throws JobPersistenceException {
-    return assembler.getTriggerDao().getGroupNames();
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<List<String>>() {
+      @Override
+      public List<String> doInTransaction() throws JobPersistenceException {
+        return assembler.getTriggerDao().getGroupNames();
+      }
+    });
   }
 
   @Override
@@ -347,39 +452,73 @@ public class OrientDbJobStore implements JobStore {
 
   @Override
   public List<OperableTrigger> getTriggersForJob(JobKey jobKey) throws JobPersistenceException {
-    return assembler.persister.getTriggersForJob(jobKey);
+    return assembler.getPersister().getTriggersForJob(jobKey);
   }
 
   @Override
-  public TriggerState getTriggerState(TriggerKey triggerKey) throws JobPersistenceException {
-    return assembler.triggerStateManager.getState(triggerKey);
+  public TriggerState getTriggerState(final TriggerKey triggerKey) throws JobPersistenceException {
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<TriggerState>() {
+      @Override
+      public TriggerState doInTransaction() throws JobPersistenceException {
+        return assembler.getTriggerStateManager().getState(triggerKey);
+      }
+    });
   }
 
   @Override
-  public void pauseTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-    assembler.triggerStateManager.pause(triggerKey);
+  public void pauseTrigger(final TriggerKey triggerKey) throws JobPersistenceException {
+    assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Void>() {
+      @Override
+      public Void doInTransaction() throws JobPersistenceException {
+        assembler.getTriggerStateManager().pause(triggerKey);
+
+        return null;
+      }
+    });
   }
 
   @Override
-  public Collection<String> pauseTriggers(GroupMatcher<TriggerKey> matcher)
+  public Collection<String> pauseTriggers(final GroupMatcher<TriggerKey> matcher)
       throws JobPersistenceException {
-    return assembler.triggerStateManager.pause(matcher);
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Collection<String>>() {
+      @Override
+      public Collection<String> doInTransaction() throws JobPersistenceException {
+        return assembler.getTriggerStateManager().pause(matcher);
+      }
+    });
+   }
+
+  @Override
+  public void resumeTrigger(final TriggerKey triggerKey) throws JobPersistenceException {
+    assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Void>() {
+      @Override
+      public Void doInTransaction() throws JobPersistenceException {
+        assembler.getTriggerStateManager().resume(triggerKey);
+        
+        return null;
+      }
+    });
   }
 
   @Override
-  public void resumeTrigger(TriggerKey triggerKey) throws JobPersistenceException {
-    assembler.triggerStateManager.resume(triggerKey);
-  }
-
-  @Override
-  public Collection<String> resumeTriggers(GroupMatcher<TriggerKey> matcher)
+  public Collection<String> resumeTriggers(final GroupMatcher<TriggerKey> matcher)
       throws JobPersistenceException {
-    return assembler.triggerStateManager.resume(matcher);
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Collection<String>>() {
+      @Override
+      public Collection<String> doInTransaction() throws JobPersistenceException {
+        return assembler.getTriggerStateManager().resume(matcher);
+      }
+    });
   }
 
   @Override
   public Set<String> getPausedTriggerGroups() throws JobPersistenceException {
-    return assembler.triggerStateManager.getPausedTriggerGroups();
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Set<String>>() {
+      @Override
+      public Set<String> doInTransaction() throws JobPersistenceException {
+        return assembler.getTriggerStateManager().getPausedTriggerGroups();
+      }
+    });
   }
 
   /**
@@ -393,62 +532,129 @@ public class OrientDbJobStore implements JobStore {
    * @throws JobPersistenceException
    */
   public List<String> getPausedJobGroups() throws JobPersistenceException {
-    return assembler.getPausedJobGroupsDao().getPausedGroups();
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<List<String>>() {
+      @Override
+      public List<String> doInTransaction() throws JobPersistenceException {
+        return assembler.getPausedJobGroupsDao().getPausedGroups();
+      }
+    });
   }
 
   @Override
   public void pauseAll() throws JobPersistenceException {
-    assembler.triggerStateManager.pauseAll();
+   assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Void>() {
+      @Override
+      public Void doInTransaction() throws JobPersistenceException {
+        assembler.getTriggerStateManager().pauseAll();
+        
+        return null;
+      }
+    });
   }
 
   @Override
   public void resumeAll() throws JobPersistenceException {
-    assembler.triggerStateManager.resumeAll();
+    assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Void>() {
+      @Override
+      public Void doInTransaction() throws JobPersistenceException {
+        assembler.getTriggerStateManager().resumeAll();
+        
+        return null;
+     }
+    });
+   }
+
+  @Override
+  public void pauseJob(final JobKey jobKey) throws JobPersistenceException {
+    assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Void>() {
+      @Override
+      public Void doInTransaction() throws JobPersistenceException {
+        assembler.getTriggerStateManager().pauseJob(jobKey);
+        
+        return null;
+      }
+    });
   }
 
   @Override
-  public void pauseJob(JobKey jobKey) throws JobPersistenceException {
-    assembler.triggerStateManager.pauseJob(jobKey);
-  }
-
-  @Override
-  public Collection<String> pauseJobs(GroupMatcher<JobKey> groupMatcher)
+  public Collection<String> pauseJobs(final GroupMatcher<JobKey> groupMatcher)
       throws JobPersistenceException {
-    return assembler.triggerStateManager.pauseJobs(groupMatcher);
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Collection<String>>() {
+      @Override
+      public Collection<String> doInTransaction() throws JobPersistenceException {
+        return assembler.getTriggerStateManager().pauseJobs(groupMatcher);
+      }
+    });
   }
 
   @Override
-  public void resumeJob(JobKey jobKey) throws JobPersistenceException {
-    assembler.triggerStateManager.resume(jobKey);
+  public void resumeJob(final JobKey jobKey) throws JobPersistenceException {
+    assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Void>() {
+      @Override
+      public Void doInTransaction() throws JobPersistenceException {
+        assembler.getTriggerStateManager().resume(jobKey);
+        
+        return null;
+      }
+    });
   }
 
   @Override
-  public Collection<String> resumeJobs(GroupMatcher<JobKey> groupMatcher)
+  public Collection<String> resumeJobs(final GroupMatcher<JobKey> groupMatcher)
       throws JobPersistenceException {
-    return assembler.triggerStateManager.resumeJobs(groupMatcher);
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Collection<String>>() {
+      @Override
+      public Collection<String> doInTransaction() throws JobPersistenceException {
+        return assembler.getTriggerStateManager().resumeJobs(groupMatcher);
+      }
+    });
   }
 
   @Override
-  public List<OperableTrigger> acquireNextTriggers(long noLaterThan, int maxCount, long timeWindow)
+  public List<OperableTrigger> acquireNextTriggers(final long noLaterThan, final int maxCount, final long timeWindow)
       throws JobPersistenceException {
-    return assembler.triggerRunner.acquireNext(noLaterThan, maxCount, timeWindow);
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<List<OperableTrigger>>() {
+      @Override
+      public List<OperableTrigger> doInTransaction() throws JobPersistenceException {
+        return assembler.getTriggerRunner().acquireNext(noLaterThan, maxCount, timeWindow);
+      }
+    });
   }
 
   @Override
-  public void releaseAcquiredTrigger(OperableTrigger trigger) throws JobPersistenceException {
-    assembler.lockManager.unlockAcquiredTrigger(trigger);
+  public void releaseAcquiredTrigger(final OperableTrigger trigger) throws JobPersistenceException {
+    assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Void>() {
+      @Override
+      public Void doInTransaction() throws JobPersistenceException {
+        assembler.getLockManager().unlockAcquiredTrigger(trigger);
+        
+        return null;
+      }
+    });
   }
 
   @Override
-  public List<TriggerFiredResult> triggersFired(List<OperableTrigger> triggers)
+  public List<TriggerFiredResult> triggersFired(final List<OperableTrigger> triggers)
       throws JobPersistenceException {
-    return assembler.triggerRunner.triggersFired(triggers);
+    return assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<List<TriggerFiredResult>>() {
+      @Override
+      public List<TriggerFiredResult> doInTransaction() throws JobPersistenceException {
+        return assembler.getTriggerRunner().triggersFired(triggers);
+      }
+    });
   }
 
   @Override
-  public void triggeredJobComplete(OperableTrigger trigger, JobDetail job,
-      CompletedExecutionInstruction triggerInstCode) throws JobPersistenceException {
-    assembler.jobCompleteHandler.jobComplete(trigger, job, triggerInstCode);
+  public void triggeredJobComplete(final OperableTrigger trigger, final JobDetail job,
+      final CompletedExecutionInstruction triggerInstCode) throws JobPersistenceException {
+    assembler.getOrientDbConnector().doInTransaction(new TransactionMethod<Void>() {
+      @Override
+      public Void doInTransaction() throws JobPersistenceException {
+        assembler.getJobCompleteHandler().jobComplete(trigger, job, triggerInstCode);
+
+        return null;
+      }
+    });
   }
 
   @Override

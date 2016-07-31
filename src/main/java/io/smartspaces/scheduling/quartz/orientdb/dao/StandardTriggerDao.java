@@ -73,7 +73,7 @@ public class StandardTriggerDao {
     // triggerCollection.dropIndex("keyName_1_keyGroup_1");
   }
 
-  public void clear() {
+  public void removeAll() {
     ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
     for (ODocument trigger : database.browseClass("Trigger")) {
       trigger.delete();

@@ -42,7 +42,7 @@ public class StandardCalendarDao {
     this.storeAssembler = storeAssembler;
   }
 
-  public void clear() {
+  public void removeAll() {
     ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
     for (ODocument calendar : database.browseClass("Calendar")) {
       calendar.delete();

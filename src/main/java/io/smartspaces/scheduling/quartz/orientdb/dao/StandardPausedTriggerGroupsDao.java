@@ -68,7 +68,7 @@ public class StandardPausedTriggerGroupsDao {
     }
   }
 
-  public void remove() {
+  public void removeAll() {
     ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
     for (ODocument pausedTriggerGroup : database.browseClass("PausedTriggerGroup")) {
       pausedTriggerGroup.delete();

@@ -57,7 +57,7 @@ public class StandardJobDao {
     this.jobConverter = jobConverter;
   }
 
-  public void clear() {
+  public void removeAll() {
     ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
     for (ODocument job : database.browseClass("Job")) {
       job.delete();

@@ -65,7 +65,7 @@ public class StandardPausedJobGroupsDao {
     }
   }
 
-  public void remove() {
+  public void removeAll() {
     ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
     for (ODocument pausedJobGroup : database.browseClass("PausedJobGroup")) {
       pausedJobGroup.delete();
