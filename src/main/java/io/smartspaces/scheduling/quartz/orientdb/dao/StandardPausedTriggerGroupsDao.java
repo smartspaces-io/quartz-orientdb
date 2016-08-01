@@ -18,20 +18,14 @@
 
 package io.smartspaces.scheduling.quartz.orientdb.dao;
 
-import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.KEY_GROUP;
-
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 
-import org.bson.Document;
-
-import com.mongodb.client.model.Filters;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.sql.query.OSQLSynchQuery;
 
+import io.smartspaces.scheduling.quartz.orientdb.Constants;
 import io.smartspaces.scheduling.quartz.orientdb.StandardOrientDbStoreAssembler;
 import io.smartspaces.scheduling.quartz.orientdb.util.QueryHelper;
 
@@ -64,7 +58,7 @@ public class StandardPausedTriggerGroupsDao {
     }
 
     for (String s : groups) {
-      new ODocument("PausedTriggerGroup").field(KEY_GROUP, s).save();
+      new ODocument("PausedTriggerGroup").field(Constants.KEY_GROUP, s).save();
     }
   }
 

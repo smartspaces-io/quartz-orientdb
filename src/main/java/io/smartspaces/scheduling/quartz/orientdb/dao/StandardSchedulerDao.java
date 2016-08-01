@@ -28,6 +28,7 @@ import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.sql.query.OSQLSynchQuery;
 
+import io.smartspaces.scheduling.quartz.orientdb.Constants;
 import io.smartspaces.scheduling.quartz.orientdb.StandardOrientDbStoreAssembler;
 import io.smartspaces.scheduling.quartz.orientdb.cluster.Scheduler;
 import io.smartspaces.scheduling.quartz.orientdb.util.Clock;
@@ -35,11 +36,6 @@ import io.smartspaces.scheduling.quartz.orientdb.util.Clock;
 public class StandardSchedulerDao {
 
   private static final Logger log = LoggerFactory.getLogger(StandardSchedulerDao.class);
-
-  public static final String SCHEDULER_NAME_FIELD = "schedulerName";
-  public static final String INSTANCE_ID_FIELD = "instanceId";
-  public static final String LAST_CHECKIN_TIME_FIELD = "lastCheckinTime";
-  public static final String CHECKIN_INTERVAL_FIELD = "checkinInterval";
 
   private final StandardOrientDbStoreAssembler storeAssembler;
 
@@ -77,12 +73,12 @@ public class StandardSchedulerDao {
     if (!schedulers.isEmpty()) {
       scheduler = schedulers.get(0);
     } else {
-      scheduler = new ODocument("Scheduler").field(SCHEDULER_NAME_FIELD, schedulerName)
-          .field(INSTANCE_ID_FIELD, instanceId);
+      scheduler = new ODocument("Scheduler").field(Constants.SCHEDULER_NAME_FIELD, schedulerName)
+          .field(Constants.SCHEDULER_INSTANCE_ID_FIELD, instanceId);
     }
 
-    scheduler.field(LAST_CHECKIN_TIME_FIELD, lastCheckinTime).field(CHECKIN_INTERVAL_FIELD,
-        clusterCheckinIntervalMillis);
+    scheduler.field(Constants.SCHEDULER_LAST_CHECKIN_TIME_FIELD, lastCheckinTime)
+        .field(Constants.SCHEDULER_CHECKIN_INTERVAL_FIELD, clusterCheckinIntervalMillis);
 
     scheduler.save();
 
@@ -190,9 +186,9 @@ public class StandardSchedulerDao {
    * @return
    */
   private Scheduler toScheduler(ODocument schedulerDoc) {
-    return new Scheduler((String) schedulerDoc.field(SCHEDULER_NAME_FIELD),
-        (String) schedulerDoc.field(INSTANCE_ID_FIELD),
-        (Long) schedulerDoc.field(LAST_CHECKIN_TIME_FIELD),
-        (Long) schedulerDoc.field(CHECKIN_INTERVAL_FIELD));
+    return new Scheduler((String) schedulerDoc.field(Constants.SCHEDULER_NAME_FIELD),
+        (String) schedulerDoc.field(Constants.SCHEDULER_INSTANCE_ID_FIELD),
+        (Long) schedulerDoc.field(Constants.SCHEDULER_LAST_CHECKIN_TIME_FIELD),
+        (Long) schedulerDoc.field(Constants.SCHEDULER_CHECKIN_INTERVAL_FIELD));
   }
 }

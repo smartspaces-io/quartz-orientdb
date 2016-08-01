@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
 import io.smartspaces.scheduling.quartz.orientdb.LockManager;
 import io.smartspaces.scheduling.quartz.orientdb.TriggerAndJobPersister;
 import io.smartspaces.scheduling.quartz.orientdb.dao.StandardJobDao;
-import io.smartspaces.scheduling.quartz.orientdb.dao.StandardLocksDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardLockDao;
 import io.smartspaces.scheduling.quartz.orientdb.dao.StandardTriggerDao;
 import io.smartspaces.scheduling.quartz.orientdb.trigger.MisfireHandler;
 
@@ -17,7 +17,7 @@ public class TriggerRecoverer {
 
     private static final Logger log = LoggerFactory.getLogger(TriggerRecoverer.class);
 
-    private final StandardLocksDao locksDao;
+    private final StandardLockDao locksDao;
     private final TriggerAndJobPersister persister;
     private final LockManager lockManager;
     private final StandardTriggerDao triggerDao;
@@ -25,7 +25,7 @@ public class TriggerRecoverer {
     private final RecoveryTriggerFactory recoveryTriggerFactory;
     private final MisfireHandler misfireHandler;
 
-    public TriggerRecoverer(StandardLocksDao locksDao, TriggerAndJobPersister persister,
+    public TriggerRecoverer(StandardLockDao locksDao, TriggerAndJobPersister persister,
                             LockManager lockManager, StandardTriggerDao triggerDao,
                             StandardJobDao jobDao, RecoveryTriggerFactory recoveryTriggerFactory,
                             MisfireHandler misfireHandler) {

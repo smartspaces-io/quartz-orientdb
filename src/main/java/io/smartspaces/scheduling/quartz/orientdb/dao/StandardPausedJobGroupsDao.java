@@ -18,8 +18,6 @@
 
 package io.smartspaces.scheduling.quartz.orientdb.dao;
 
-import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.KEY_GROUP;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -28,6 +26,7 @@ import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.sql.query.OSQLSynchQuery;
 
+import io.smartspaces.scheduling.quartz.orientdb.Constants;
 import io.smartspaces.scheduling.quartz.orientdb.StandardOrientDbStoreAssembler;
 import io.smartspaces.scheduling.quartz.orientdb.util.QueryHelper;
 
@@ -61,7 +60,7 @@ public class StandardPausedJobGroupsDao {
     }
 
     for (String s : groups) {
-      new ODocument("PausedJobGroups").field(KEY_GROUP, s).save();
+      new ODocument("PausedJobGroups").field(Constants.KEY_GROUP, s).save();
     }
   }
 

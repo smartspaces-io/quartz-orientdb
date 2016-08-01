@@ -29,17 +29,17 @@ import org.slf4j.LoggerFactory;
 
 import com.orientechnologies.orient.core.record.impl.ODocument;
 
-import io.smartspaces.scheduling.quartz.orientdb.dao.StandardLocksDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardLockDao;
 import io.smartspaces.scheduling.quartz.orientdb.util.ExpiryCalculator;
 
 public class LockManager {
 
   private static final Logger log = LoggerFactory.getLogger(LockManager.class);
 
-  private StandardLocksDao locksDao;
+  private StandardLockDao locksDao;
   private ExpiryCalculator expiryCalculator;
 
-  public LockManager(StandardLocksDao locksDao, ExpiryCalculator expiryCalculator) {
+  public LockManager(StandardLockDao locksDao, ExpiryCalculator expiryCalculator) {
     this.locksDao = locksDao;
     this.expiryCalculator = expiryCalculator;
   }

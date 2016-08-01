@@ -29,11 +29,10 @@ import org.quartz.impl.matchers.GroupMatcher;
 
 import com.orientechnologies.orient.core.id.ORID;
 
-import io.smartspaces.scheduling.quartz.orientdb.dao.StandardPausedTriggerGroupsDao;
 import io.smartspaces.scheduling.quartz.orientdb.dao.StandardJobDao;
 import io.smartspaces.scheduling.quartz.orientdb.dao.StandardPausedJobGroupsDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardPausedTriggerGroupsDao;
 import io.smartspaces.scheduling.quartz.orientdb.dao.StandardTriggerDao;
-import io.smartspaces.scheduling.quartz.orientdb.util.QueryHelper;
 
 public class TriggerStateManager {
 
@@ -113,7 +112,7 @@ public class TriggerStateManager {
 
   public void resumeAll() {
     triggerDao.setStateInAll(Constants.STATE_WAITING);
-    pausedTriggerGroupsDao.remove();
+    pausedTriggerGroupsDao.removeAll();
   }
 
   public Set<String> resumeJobs(GroupMatcher<JobKey> groupMatcher) {

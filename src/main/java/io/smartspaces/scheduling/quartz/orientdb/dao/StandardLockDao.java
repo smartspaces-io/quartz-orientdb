@@ -40,19 +40,19 @@ import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.sql.query.OSQLSynchQuery;
 
 import io.smartspaces.scheduling.quartz.orientdb.Constants;
+import io.smartspaces.scheduling.quartz.orientdb.Constants.LockType;
 import io.smartspaces.scheduling.quartz.orientdb.StandardOrientDbStoreAssembler;
 import io.smartspaces.scheduling.quartz.orientdb.util.Clock;
-import io.smartspaces.scheduling.quartz.orientdb.util.Keys.LockType;
 
-public class StandardLocksDao {
+public class StandardLockDao {
 
-  private static final Logger log = LoggerFactory.getLogger(StandardLocksDao.class);
+  private static final Logger log = LoggerFactory.getLogger(StandardLockDao.class);
 
   private final StandardOrientDbStoreAssembler storeAssembler;
   private Clock clock;
   private final String instanceId;
 
-  public StandardLocksDao(StandardOrientDbStoreAssembler storeAssembler, Clock clock, String instanceId) {
+  public StandardLockDao(StandardOrientDbStoreAssembler storeAssembler, Clock clock, String instanceId) {
     this.storeAssembler = storeAssembler;
     this.clock = clock;
     this.instanceId = instanceId;
@@ -130,7 +130,7 @@ public class StandardLocksDao {
     // TODO(keith): class and field names should come from external constants
     // Also create query ahead of time when DAO starts.
     OSQLSynchQuery<ODocument> query =
-        new OSQLSynchQuery<ODocument>("select from Locks where instanceId=? and type=?");
+        new OSQLSynchQuery<ODocument>("select from QuartzLock where instanceId=? and type=?");
     ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
     List<ODocument> result = database.command(query).execute(instanceId, lockType.name());
     return result;
@@ -169,7 +169,7 @@ public class StandardLocksDao {
       // TODO(keith): class and field names should come from external constants
       // Also create query ahead of time when DAO starts.
       OSQLSynchQuery<ODocument> query = new OSQLSynchQuery<ODocument>(
-          "select from Locks where instanceId=? and type=? and keyGroup=? and keyName=? and time=?");
+          "select from QuartzLock where instanceId=? and type=? and keyGroup=? and keyName=? and time=?");
       ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
       List<ODocument> result = database.command(query).execute(instanceId, LockType.trigger.name(),
           key.getGroup(), key.getName(), lockTime);
@@ -204,7 +204,7 @@ public class StandardLocksDao {
       // TODO(keith): class and field names should come from external constants
       // Also create query ahead of time when DAO starts.
       OSQLSynchQuery<ODocument> query = new OSQLSynchQuery<ODocument>(
-          "select from Locks where instanceId=? and keyGroup=? and keyName=?");
+          "select from QuartzLock where instanceId=? and keyGroup=? and keyName=?");
       ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
       List<ODocument> result =
           database.command(query).execute(instanceId, key.getGroup(), key.getName());
@@ -254,7 +254,7 @@ public class StandardLocksDao {
     // TODO(keith): class and field names should come from external constants
     // Also create query ahead of time when DAO starts.
     OSQLSynchQuery<ODocument> query = new OSQLSynchQuery<ODocument>(
-        "select from Locks where instanceId=? and type=? and keyGroup=? and keyName=?");
+        "select from QuartzLock where instanceId=? and type=? and keyGroup=? and keyName=?");
     ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
     List<ODocument> result =
         database.command(query).execute(instanceId, lockType.name(), key.getGroup(), key.getName());

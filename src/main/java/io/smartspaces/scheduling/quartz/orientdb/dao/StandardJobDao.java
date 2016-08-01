@@ -18,8 +18,6 @@
 
 package io.smartspaces.scheduling.quartz.orientdb.dao;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -35,6 +33,7 @@ import com.orientechnologies.orient.core.id.ORID;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.sql.query.OSQLSynchQuery;
 
+import io.smartspaces.scheduling.quartz.orientdb.Constants;
 import io.smartspaces.scheduling.quartz.orientdb.JobConverter;
 import io.smartspaces.scheduling.quartz.orientdb.StandardOrientDbStoreAssembler;
 import io.smartspaces.scheduling.quartz.orientdb.util.Keys;
@@ -148,7 +147,7 @@ public class StandardJobDao {
   public boolean requestsRecovery(JobKey jobKey) {
     // TODO check if it's the same as getJobDataMap?
     ODocument jobDoc = getJob(jobKey);
-    return ODocumentHelper.getBooleanField(jobDoc, JobConverter.JOB_REQUESTS_RECOVERY, false);
+    return ODocumentHelper.getBooleanField(jobDoc, Constants.JOB_REQUESTS_RECOVERY, false);
   }
 
   public JobDetail retrieveJob(JobKey jobKey) throws JobPersistenceException {
@@ -165,7 +164,7 @@ public class StandardJobDao {
     JobKey key = newJob.getKey();
 
     ODocument newJobDoc = jobConverter.toDocument(newJob, key);
-
+ 
     ODocument oldJobDoc = getJob(key);
 
     ORID jobId = null;

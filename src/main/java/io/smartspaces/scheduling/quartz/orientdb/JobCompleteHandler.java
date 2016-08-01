@@ -27,7 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.smartspaces.scheduling.quartz.orientdb.dao.StandardJobDao;
-import io.smartspaces.scheduling.quartz.orientdb.dao.StandardLocksDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardLockDao;
 import io.smartspaces.scheduling.quartz.orientdb.dao.StandardTriggerDao;
 
 //TODO Think of some better name for doing work after a job has completed :-)
@@ -38,11 +38,11 @@ public class JobCompleteHandler {
   private final TriggerAndJobPersister persister;
   private final SchedulerSignaler signaler;
   private final StandardJobDao jobDao;
-  private final StandardLocksDao locksDao;
+  private final StandardLockDao locksDao;
   private StandardTriggerDao triggerDao;
 
   public JobCompleteHandler(TriggerAndJobPersister persister, SchedulerSignaler signaler,
-      StandardJobDao jobDao, StandardLocksDao locksDao, StandardTriggerDao triggerDao) {
+      StandardJobDao jobDao, StandardLockDao locksDao, StandardTriggerDao triggerDao) {
     this.persister = persister;
     this.signaler = signaler;
     this.jobDao = jobDao;

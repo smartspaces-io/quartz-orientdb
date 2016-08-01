@@ -18,9 +18,6 @@
 
 package io.smartspaces.scheduling.quartz.orientdb.trigger;
 
-import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.KEY_GROUP;
-import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.KEY_NAME;
-
 import java.io.IOException;
 import java.util.Date;
 
@@ -40,17 +37,6 @@ import io.smartspaces.scheduling.quartz.orientdb.dao.StandardJobDao;
 import io.smartspaces.scheduling.quartz.orientdb.util.SerialUtils;
 
 public class TriggerConverter {
-
-  private static final String TRIGGER_CALENDAR_NAME = "calendarName";
-  private static final String TRIGGER_CLASS = "class";
-  private static final String TRIGGER_DESCRIPTION = "description";
-  private static final String TRIGGER_END_TIME = "endTime";
-  private static final String TRIGGER_FINAL_FIRE_TIME = "finalFireTime";
-  private static final String TRIGGER_FIRE_INSTANCE_ID = "fireInstanceId";
-  private static final String TRIGGER_MISFIRE_INSTRUCTION = "misfireInstruction";
-  private static final String TRIGGER_PREVIOUS_FIRE_TIME = "previousFireTime";
-  private static final String TRIGGER_PRIORITY = "priority";
-  private static final String TRIGGER_START_TIME = "startTime";
 
   private static final Logger log = LoggerFactory.getLogger(TriggerConverter.class);
 
@@ -102,8 +88,8 @@ public class TriggerConverter {
 
     ODocument job = triggerDoc.field(Constants.TRIGGER_JOB_ID);
     if (job != null) {
-      String keyName = job.field(KEY_NAME);
-      String keyGroup = job.field(KEY_GROUP);
+      String keyName = job.field(Constants.KEY_NAME);
+      String keyGroup = job.field(Constants.KEY_GROUP);
       trigger.setJobKey(new JobKey(keyName, keyGroup));
       return trigger;
     } else {
@@ -113,32 +99,32 @@ public class TriggerConverter {
   }
 
   public OperableTrigger toTrigger(ODocument doc) throws JobPersistenceException {
-    TriggerKey key = new TriggerKey((String) doc.field(KEY_NAME), (String) doc.field(KEY_GROUP));
+    TriggerKey key = new TriggerKey((String) doc.field(Constants.KEY_NAME), (String) doc.field(Constants.KEY_GROUP));
     return toTrigger(key, doc);
   }
 
   private ODocument convertToDocument(OperableTrigger newTrigger, ORID jobId) {
-    ODocument trigger = new ODocument();
+    ODocument trigger = new ODocument("Trigger");
     trigger.field(Constants.TRIGGER_STATE, Constants.STATE_WAITING);
-    trigger.field(TRIGGER_CALENDAR_NAME, newTrigger.getCalendarName());
-    trigger.field(TRIGGER_CLASS, newTrigger.getClass().getName());
-    trigger.field(TRIGGER_DESCRIPTION, newTrigger.getDescription());
-    trigger.field(TRIGGER_END_TIME, newTrigger.getEndTime());
-    trigger.field(TRIGGER_FINAL_FIRE_TIME, newTrigger.getFinalFireTime());
-    trigger.field(TRIGGER_FIRE_INSTANCE_ID, newTrigger.getFireInstanceId());
+    trigger.field(Constants.TRIGGER_CALENDAR_NAME, newTrigger.getCalendarName());
+    trigger.field(Constants.TRIGGER_CLASS, newTrigger.getClass().getName());
+    trigger.field(Constants.TRIGGER_DESCRIPTION, newTrigger.getDescription());
+    trigger.field(Constants.TRIGGER_END_TIME, newTrigger.getEndTime());
+    trigger.field(Constants.TRIGGER_FINAL_FIRE_TIME, newTrigger.getFinalFireTime());
+    trigger.field(Constants.TRIGGER_FIRE_INSTANCE_ID, newTrigger.getFireInstanceId());
     trigger.field(Constants.TRIGGER_JOB_ID, jobId);
-    trigger.field(KEY_NAME, newTrigger.getKey().getName());
-    trigger.field(KEY_GROUP, newTrigger.getKey().getGroup());
-    trigger.field(TRIGGER_MISFIRE_INSTRUCTION, newTrigger.getMisfireInstruction());
+    trigger.field(Constants.KEY_NAME, newTrigger.getKey().getName());
+    trigger.field(Constants.KEY_GROUP, newTrigger.getKey().getGroup());
+    trigger.field(Constants.TRIGGER_MISFIRE_INSTRUCTION, newTrigger.getMisfireInstruction());
     trigger.field(Constants.TRIGGER_NEXT_FIRE_TIME, newTrigger.getNextFireTime());
-    trigger.field(TRIGGER_PREVIOUS_FIRE_TIME, newTrigger.getPreviousFireTime());
-    trigger.field(TRIGGER_PRIORITY, newTrigger.getPriority());
-    trigger.field(TRIGGER_START_TIME, newTrigger.getStartTime());
+    trigger.field(Constants.TRIGGER_PREVIOUS_FIRE_TIME, newTrigger.getPreviousFireTime());
+    trigger.field(Constants.TRIGGER_PRIORITY, newTrigger.getPriority());
+    trigger.field(Constants.TRIGGER_START_TIME, newTrigger.getStartTime());
     return trigger;
   }
 
   private OperableTrigger createNewInstance(ODocument triggerDoc) throws JobPersistenceException {
-    String triggerClassName = triggerDoc.field(TRIGGER_CLASS);
+    String triggerClassName = triggerDoc.field(Constants.TRIGGER_CLASS);
     try {
       @SuppressWarnings("unchecked")
       Class<OperableTrigger> triggerClass =
@@ -158,13 +144,13 @@ public class TriggerConverter {
   private void loadCommonProperties(TriggerKey triggerKey, ODocument triggerDoc,
       OperableTrigger trigger) {
     trigger.setKey(triggerKey);
-    trigger.setCalendarName((String) triggerDoc.field(TRIGGER_CALENDAR_NAME));
-    trigger.setDescription((String) triggerDoc.field(TRIGGER_DESCRIPTION));
-    trigger.setFireInstanceId((String) triggerDoc.field(TRIGGER_FIRE_INSTANCE_ID));
-    trigger.setMisfireInstruction((Integer) triggerDoc.field(TRIGGER_MISFIRE_INSTRUCTION));
+    trigger.setCalendarName((String) triggerDoc.field(Constants.TRIGGER_CALENDAR_NAME));
+    trigger.setDescription((String) triggerDoc.field(Constants.TRIGGER_DESCRIPTION));
+    trigger.setFireInstanceId((String) triggerDoc.field(Constants.TRIGGER_FIRE_INSTANCE_ID));
+    trigger.setMisfireInstruction((Integer) triggerDoc.field(Constants.TRIGGER_MISFIRE_INSTRUCTION));
     trigger.setNextFireTime((Date) triggerDoc.field(Constants.TRIGGER_NEXT_FIRE_TIME));
-    trigger.setPreviousFireTime((Date) triggerDoc.field(TRIGGER_PREVIOUS_FIRE_TIME));
-    trigger.setPriority((Integer) triggerDoc.field(TRIGGER_PRIORITY));
+    trigger.setPreviousFireTime((Date) triggerDoc.field(Constants.TRIGGER_PREVIOUS_FIRE_TIME));
+    trigger.setPriority((Integer) triggerDoc.field(Constants.TRIGGER_PRIORITY));
   }
 
   private void loadJobData(ODocument triggerDoc, OperableTrigger trigger)
@@ -188,8 +174,8 @@ public class TriggerConverter {
 
   private void loadStartAndEndTime(ODocument triggerDoc, OperableTrigger trigger) {
     try {
-      trigger.setStartTime((Date) triggerDoc.field(TRIGGER_START_TIME));
-      trigger.setEndTime((Date) triggerDoc.field(TRIGGER_END_TIME));
+      trigger.setStartTime((Date) triggerDoc.field(Constants.TRIGGER_START_TIME));
+      trigger.setEndTime((Date) triggerDoc.field(Constants.TRIGGER_END_TIME));
     } catch (IllegalArgumentException e) {
       // Ignore illegal arg exceptions thrown by triggers doing JIT validation
       // of start and endtime

@@ -18,12 +18,8 @@
 
 package io.smartspaces.scheduling.quartz.orientdb;
 
-import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.KEY_GROUP;
-import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.KEY_NAME;
-
 import java.io.IOException;
 
-import org.bson.Document;
 import org.quartz.Job;
 import org.quartz.JobBuilder;
 import org.quartz.JobDataMap;
@@ -41,13 +37,6 @@ import io.smartspaces.scheduling.quartz.orientdb.util.SerialUtils;
  */
 public class JobConverter {
 
-  public static final String JOB_DURABILITY = "durability";
-
-  private static final String JOB_CLASS = "jobClass";
-
-  private static final String JOB_DESCRIPTION = "jobDescription";
-
-  public static final String JOB_REQUESTS_RECOVERY = "requestsRecovery";
 
   private ClassLoadHelper loadHelper;
 
@@ -58,19 +47,19 @@ public class JobConverter {
   public ODocument toDocument(JobDetail newJob, JobKey key) {
     ODocument job = new ODocument("Job");
 
-    job.field(KEY_NAME, key.getName());
-    job.field(KEY_GROUP, key.getGroup());
-    job.field(JOB_DESCRIPTION, newJob.getDescription());
-    job.field(JOB_CLASS, newJob.getJobClass().getName());
-    job.field(JOB_DURABILITY, newJob.isDurable());
-    job.field(JOB_REQUESTS_RECOVERY, newJob.requestsRecovery());
+    job.field(Constants.KEY_NAME, key.getName());
+    job.field(Constants.KEY_GROUP, key.getGroup());
+    job.field(Constants.JOB_DESCRIPTION, newJob.getDescription());
+    job.field(Constants.JOB_CLASS, newJob.getJobClass().getName());
+    job.field(Constants.JOB_DURABILITY, newJob.isDurable());
+    job.field(Constants.JOB_REQUESTS_RECOVERY, newJob.requestsRecovery());
     job.fromMap(newJob.getJobDataMap());
 
     return job;
   }
 
   public JobDetail toJobDetail(ODocument doc) throws JobPersistenceException {
-    String jobClassName = doc.field(JOB_CLASS);
+    String jobClassName = doc.field(Constants.JOB_CLASS);
     try {
       // Make it possible for subclasses to use custom class loaders.
       // When Quartz jobs are implemented as Clojure records, the only way to
@@ -100,9 +89,9 @@ public class JobConverter {
       jobData.putAll(SerialUtils.deserialize(jobData, jobDataString));
     } else {
       for (String key : doc.fieldNames()) {
-        if (!key.equals(KEY_NAME) && !key.equals(KEY_GROUP) && !key.equals(JOB_CLASS)
-            && !key.equals(JOB_DESCRIPTION) && !key.equals(JOB_DURABILITY)
-            && !key.equals(JOB_REQUESTS_RECOVERY) && !key.equals("_id")) {
+        if (!key.equals(Constants.KEY_NAME) && !key.equals(Constants.KEY_GROUP) && !key.equals(Constants.JOB_CLASS)
+            && !key.equals(Constants.JOB_DESCRIPTION) && !key.equals(Constants.JOB_DURABILITY)
+            && !key.equals(Constants.JOB_REQUESTS_RECOVERY) && !key.equals("_id")) {
           jobData.put(key, doc.field(key));
         }
       }
@@ -113,14 +102,14 @@ public class JobConverter {
   }
 
   private void withDurability(ODocument doc, JobBuilder builder) throws JobPersistenceException {
-    Object jobDurability = doc.field(JOB_DURABILITY);
+    Object jobDurability = doc.field(Constants.JOB_DURABILITY);
     if (jobDurability != null) {
       if (jobDurability instanceof Boolean) {
         builder.storeDurably((Boolean) jobDurability);
       } else if (jobDurability instanceof String) {
         builder.storeDurably(Boolean.valueOf((String) jobDurability));
       } else {
-        throw new JobPersistenceException("Illegal value for " + JOB_DURABILITY + ", class "
+        throw new JobPersistenceException("Illegal value for " + Constants.JOB_DURABILITY + ", class "
             + jobDurability.getClass() + " not supported");
       }
     }
@@ -128,7 +117,7 @@ public class JobConverter {
 
   private void withRequestsRecovery(ODocument doc, JobBuilder builder) {
     boolean requestRecovery = false;
-    Boolean requestRecoveryField = doc.field(JOB_REQUESTS_RECOVERY);
+    Boolean requestRecoveryField = doc.field(Constants.JOB_REQUESTS_RECOVERY);
     if (requestRecoveryField != null) {
       requestRecovery = requestRecoveryField;
     }
@@ -136,9 +125,9 @@ public class JobConverter {
   }
 
   private JobBuilder createJobBuilder(ODocument doc, Class<Job> jobClass) {
-    String keyName = doc.field(KEY_NAME);
-    String keyGroup = doc.field(KEY_GROUP);
-    String jobDescription = doc.field(JOB_DESCRIPTION);
+    String keyName = doc.field(Constants.KEY_NAME);
+    String keyGroup = doc.field(Constants.KEY_GROUP);
+    String jobDescription = doc.field(Constants.JOB_DESCRIPTION);
 
     return JobBuilder.newJob(jobClass).withIdentity(keyName, keyGroup)
         .withDescription(jobDescription);

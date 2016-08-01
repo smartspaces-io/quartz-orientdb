@@ -3,7 +3,7 @@ package io.smartspaces.scheduling.quartz.orientdb
 import com.mongodb.MongoWriteException
 import com.mongodb.ServerAddress
 import com.mongodb.WriteError
-import io.smartspaces.scheduling.quartz.orientdb.dao.StandardLocksDao
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardLockDao
 import io.smartspaces.scheduling.quartz.orientdb.util.ExpiryCalculator
 
 import io.smartspaces.scheduling.quartz.orientdb.Constants;
@@ -20,7 +20,7 @@ class LockManagerTest extends Specification {
 
     @Shared def tkey = new TriggerKey('n1', 'g1')
 
-    def locksDao = Mock(StandardLocksDao)
+    def locksDao = Mock(StandardLockDao)
     def expiryCalc = Mock(ExpiryCalculator)
 
     @Subject def manager = new LockManager(locksDao, expiryCalc)

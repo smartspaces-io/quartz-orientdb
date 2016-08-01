@@ -46,164 +46,158 @@ import io.smartspaces.scheduling.quartz.orientdb.trigger.TriggerConverter;
 
 public class TriggerAndJobPersister {
 
-  private static final Logger log = LoggerFactory.getLogger(TriggerAndJobPersister.class);
+	private static final Logger log = LoggerFactory.getLogger(TriggerAndJobPersister.class);
 
-  private final StandardTriggerDao triggerDao;
-  private final StandardJobDao jobDao;
-  private TriggerConverter triggerConverter;
+	private final StandardTriggerDao triggerDao;
+	private final StandardJobDao jobDao;
+	private TriggerConverter triggerConverter;
 
-  public TriggerAndJobPersister(StandardTriggerDao triggerDao, StandardJobDao jobDao,
-      TriggerConverter triggerConverter) {
-    this.triggerDao = triggerDao;
-    this.jobDao = jobDao;
-    this.triggerConverter = triggerConverter;
-  }
+	public TriggerAndJobPersister(StandardTriggerDao triggerDao, StandardJobDao jobDao,
+			TriggerConverter triggerConverter) {
+		this.triggerDao = triggerDao;
+		this.jobDao = jobDao;
+		this.triggerConverter = triggerConverter;
+	}
 
-  public List<OperableTrigger> getTriggersForJob(JobKey jobKey) throws JobPersistenceException {
-    final ODocument doc = jobDao.getJob(jobKey);
-    return triggerDao.getTriggersForJob(doc);
-  }
+	public List<OperableTrigger> getTriggersForJob(JobKey jobKey) throws JobPersistenceException {
+		final ODocument doc = jobDao.getJob(jobKey);
+		return triggerDao.getTriggersForJob(doc);
+	}
 
-  public boolean removeJob(JobKey jobKey) {
-    ODocument jobDoc = jobDao.getJob(jobKey);
-    if (jobDoc != null) {
-      jobDao.remove(jobDoc);
-      triggerDao.removeByJobId(jobDoc.getIdentity());
-      return true;
-    } else {
-    return false;
-    }
-  }
+	public boolean removeJob(JobKey jobKey) {
+		ODocument jobDoc = jobDao.getJob(jobKey);
+		if (jobDoc != null) {
+			jobDao.remove(jobDoc);
+			triggerDao.removeByJobId(jobDoc.getIdentity());
+			return true;
+		} else {
+			return false;
+		}
+	}
 
-  public boolean removeJobs(List<JobKey> jobKeys) throws JobPersistenceException {
-    for (JobKey key : jobKeys) {
-      removeJob(key);
-    }
-    return false;
-  }
+	public boolean removeJobs(List<JobKey> jobKeys) throws JobPersistenceException {
+		for (JobKey key : jobKeys) {
+			removeJob(key);
+		}
+		return false;
+	}
 
-  public boolean removeTrigger(TriggerKey triggerKey) {
-    ODocument trigger = triggerDao.findTrigger(triggerKey);
-    if (trigger != null) {
-      removeOrphanedJob(trigger);
-      triggerDao.remove(trigger);
-      return true;
-    }
-    return false;
-  }
+	public boolean removeTrigger(TriggerKey triggerKey) {
+		ODocument trigger = triggerDao.findTrigger(triggerKey);
+		if (trigger != null) {
+			removeOrphanedJob(trigger);
+			triggerDao.remove(trigger);
+			return true;
+		}
+		return false;
+	}
 
-  public boolean removeTriggers(List<TriggerKey> triggerKeys) throws JobPersistenceException {
-    // FIXME return boolean allFound = true when all removed
-    for (TriggerKey key : triggerKeys) {
-      removeTrigger(key);
-    }
-    return false;
-  }
+	public boolean removeTriggers(List<TriggerKey> triggerKeys) throws JobPersistenceException {
+		// FIXME return boolean allFound = true when all removed
+		for (TriggerKey key : triggerKeys) {
+			removeTrigger(key);
+		}
+		return false;
+	}
 
-  public boolean removeTriggerWithoutNextFireTime(OperableTrigger trigger) {
-    if (trigger.getNextFireTime() == null) {
-      log.info("Removing trigger {} as it has no next fire time.", trigger.getKey());
-      removeTrigger(trigger.getKey());
-      return true;
-    }
-    return false;
-  }
+	public boolean removeTriggerWithoutNextFireTime(OperableTrigger trigger) {
+		if (trigger.getNextFireTime() == null) {
+			log.info("Removing trigger {} as it has no next fire time.", trigger.getKey());
+			removeTrigger(trigger.getKey());
+			return true;
+		}
+		return false;
+	}
 
-  public boolean replaceTrigger(TriggerKey triggerKey, OperableTrigger newTrigger)
-      throws JobPersistenceException {
-    OperableTrigger oldTrigger = triggerDao.getTrigger(triggerKey);
-    if (oldTrigger == null) {
-      return false;
-    }
+	public boolean replaceTrigger(TriggerKey triggerKey, OperableTrigger newTrigger) throws JobPersistenceException {
+		OperableTrigger oldTrigger = triggerDao.getTrigger(triggerKey);
+		if (oldTrigger == null) {
+			return false;
+		}
 
-    if (!oldTrigger.getJobKey().equals(newTrigger.getJobKey())) {
-      throw new JobPersistenceException(
-          "New trigger is not related to the same job as the old trigger.");
-    }
+		if (!oldTrigger.getJobKey().equals(newTrigger.getJobKey())) {
+			throw new JobPersistenceException("New trigger is not related to the same job as the old trigger.");
+		}
 
-    removeOldTrigger(triggerKey);
-    copyOldJobDataMap(newTrigger, oldTrigger);
-    storeNewTrigger(newTrigger, oldTrigger);
+		removeOldTrigger(triggerKey);
+		copyOldJobDataMap(newTrigger, oldTrigger);
+		storeNewTrigger(newTrigger, oldTrigger);
 
-    return true;
-  }
+		return true;
+	}
 
-  public void storeJobAndTrigger(JobDetail newJob, OperableTrigger newTrigger)
-      throws JobPersistenceException {
-    ORID jobId = jobDao.storeJob(newJob, false);
+	public void storeJobAndTrigger(JobDetail newJob, OperableTrigger newTrigger) throws JobPersistenceException {
+		ORID jobId = jobDao.storeJob(newJob, false);
 
-    log.debug("Storing job {} and trigger {}", newJob.getKey(), newTrigger.getKey());
-    storeTrigger(newTrigger, jobId, false);
-  }
+		storeTrigger(newTrigger, jobId, false);
+	}
 
-  public void storeTrigger(OperableTrigger newTrigger, boolean replaceExisting)
-      throws JobPersistenceException {
-    JobKey jobKey = newTrigger.getJobKey();
-    if (jobKey == null) {
-      throw new JobPersistenceException(
-          "Trigger must be associated with a job. Please specify a JobKey.");
-    }
+	public void storeTrigger(OperableTrigger newTrigger, boolean replaceExisting) throws JobPersistenceException {
+		JobKey jobKey = newTrigger.getJobKey();
+		if (jobKey == null) {
+			throw new JobPersistenceException("Trigger must be associated with a job. Please specify a JobKey.");
+		}
 
-    ODocument jobDoc = jobDao.getJob(jobKey);
-    if (jobDoc != null) {
-      storeTrigger(newTrigger, jobDoc.getIdentity(), replaceExisting);
-    } else {
-      throw new JobPersistenceException("Could not find job with key " + jobKey);
-    }
-  }
+		ODocument jobDoc = jobDao.getJob(jobKey);
+		if (jobDoc != null) {
+			storeTrigger(newTrigger, jobDoc.getIdentity(), replaceExisting);
+		} else {
+			throw new JobPersistenceException("Could not find job with key " + jobKey);
+		}
+	}
 
-  private void copyOldJobDataMap(OperableTrigger newTrigger, OperableTrigger trigger) {
-    // Copy across the job data map from the old trigger to the new one.
-    newTrigger.getJobDataMap().putAll(trigger.getJobDataMap());
-  }
+	private void copyOldJobDataMap(OperableTrigger newTrigger, OperableTrigger trigger) {
+		// Copy across the job data map from the old trigger to the new one.
+		newTrigger.getJobDataMap().putAll(trigger.getJobDataMap());
+	}
 
-  private boolean isNotDurable(ODocument job) {
-    return !job.containsField(JobConverter.JOB_DURABILITY)
-        || job.field(JobConverter.JOB_DURABILITY).toString().equals("false");
-  }
+	private boolean isNotDurable(ODocument job) {
+		return !job.containsField(Constants.JOB_DURABILITY)
+				|| job.field(Constants.JOB_DURABILITY).toString().equals("false");
+	}
 
-  private boolean isOrphan(ODocument job) {
-    return (job != null) && isNotDurable(job) && triggerDao.hasLastTrigger(job);
-  }
+	private boolean isOrphan(ODocument job) {
+		return (job != null) && isNotDurable(job) && triggerDao.hasLastTrigger(job);
+	}
 
-  private void removeOldTrigger(TriggerKey triggerKey) {
-    // Can't call remove trigger as if the job is not durable, it will
-    // remove the job too
-    triggerDao.remove(triggerKey);
-  }
+	private void removeOldTrigger(TriggerKey triggerKey) {
+		// Can't call remove trigger as if the job is not durable, it will
+		// remove the job too
+		triggerDao.remove(triggerKey);
+	}
 
-  // If the removal of the Trigger results in an 'orphaned' Job that is not
-  // 'durable',
-  // then the job should be removed also.
-  private void removeOrphanedJob(ODocument trigger) {
-    if (trigger.containsField(Constants.TRIGGER_JOB_ID)) {
-      // There is only 1 job per trigger so no need to look further.
-      ODocument job = trigger.field(Constants.TRIGGER_JOB_ID);
-      if (isOrphan(job)) {
-        jobDao.remove(job);
-      }
-    } else {
-      log.debug("The trigger had no associated jobs");
-    }
-  }
+	// If the removal of the Trigger results in an 'orphaned' Job that is not
+	// 'durable',
+	// then the job should be removed also.
+	private void removeOrphanedJob(ODocument trigger) {
+		if (trigger.containsField(Constants.TRIGGER_JOB_ID)) {
+			// There is only 1 job per trigger so no need to look further.
+			ODocument job = trigger.field(Constants.TRIGGER_JOB_ID);
+			if (isOrphan(job)) {
+				jobDao.remove(job);
+			}
+		} else {
+			log.debug("The trigger had no associated jobs");
+		}
+	}
 
-  private void storeNewTrigger(OperableTrigger newTrigger, OperableTrigger oldTrigger)
-      throws JobPersistenceException {
-    try {
-      storeTrigger(newTrigger, false);
-    } catch (JobPersistenceException jpe) {
-      storeTrigger(oldTrigger, false);
-      throw jpe;
-    }
-  }
+	private void storeNewTrigger(OperableTrigger newTrigger, OperableTrigger oldTrigger)
+			throws JobPersistenceException {
+		try {
+			storeTrigger(newTrigger, false);
+		} catch (JobPersistenceException jpe) {
+			storeTrigger(oldTrigger, false);
+			throw jpe;
+		}
+	}
 
-  private void storeTrigger(OperableTrigger newTrigger, ORID jobId, boolean replaceExisting)
-      throws JobPersistenceException {
-    ODocument trigger = triggerConverter.toDocument(newTrigger, jobId);
-    if (replaceExisting) {
-      triggerDao.replace(newTrigger.getKey(), trigger);
-    } else {
-      triggerDao.insert(trigger, newTrigger);
-    }
-  }
+	private void storeTrigger(OperableTrigger newTrigger, ORID jobId, boolean replaceExisting)
+			throws JobPersistenceException {
+		ODocument trigger = triggerConverter.toDocument(newTrigger, jobId);
+		if (replaceExisting) {
+			triggerDao.replace(newTrigger.getKey(), trigger);
+		} else {
+			triggerDao.insert(trigger, newTrigger);
+		}
+	}
 }

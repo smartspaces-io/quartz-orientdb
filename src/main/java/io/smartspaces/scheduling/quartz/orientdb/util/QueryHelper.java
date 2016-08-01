@@ -18,11 +18,11 @@
 
 package io.smartspaces.scheduling.quartz.orientdb.util;
 
-import static io.smartspaces.scheduling.quartz.orientdb.util.Keys.KEY_GROUP;
-
 import java.util.Collection;
 
 import org.quartz.impl.matchers.GroupMatcher;
+
+import io.smartspaces.scheduling.quartz.orientdb.Constants;
 
 /**
  * A helper for piecing queries together.
@@ -34,13 +34,13 @@ public class QueryHelper {
 
     switch (matcher.getCompareWithOperator()) {
       case EQUALS:
-        return KEY_GROUP + " = '" + compareToValue + "'";
+        return Constants.KEY_GROUP + " = '" + compareToValue + "'";
       case STARTS_WITH:
-        return KEY_GROUP + " MATCHES '^" + compareToValue + ".*'";
+        return Constants.KEY_GROUP + " MATCHES '^" + compareToValue + ".*'";
       case ENDS_WITH:
-        return KEY_GROUP + "MATCHES '.*" + compareToValue + "$'";
+        return Constants.KEY_GROUP + "MATCHES '.*" + compareToValue + "$'";
       case CONTAINS:
-        return KEY_GROUP + "MATCHES '" + compareToValue + "'";
+        return Constants.KEY_GROUP + "MATCHES '" + compareToValue + "'";
     }
 
     return "";
@@ -65,6 +65,6 @@ public class QueryHelper {
       }
       builder.append("'").append(group).append("'");
     }
-    return KEY_GROUP + " IN (" + builder + ")";
+    return Constants.KEY_GROUP + " IN (" + builder + ")";
   }
 }

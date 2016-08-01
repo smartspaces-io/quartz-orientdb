@@ -1,3 +1,21 @@
+/*
+ * Copyright (C) 2016 Keith M. Hughes
+ * Forked from code (c) Michael S. Klishin, Alex Petrov, 2011-2015.
+ * Forked from code from MuleSoft.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package io.smartspaces.scheduling.quartz.orientdb.db;
 
 import org.quartz.JobPersistenceException;
@@ -5,6 +23,13 @@ import org.quartz.SchedulerConfigException;
 
 import com.orientechnologies.orient.core.db.OPartitionedDatabasePool;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
+import com.orientechnologies.orient.core.metadata.schema.OClass;
+import com.orientechnologies.orient.core.metadata.schema.OSchema;
+import com.orientechnologies.orient.core.metadata.schema.OType;
+import com.orientechnologies.orient.core.metadata.security.OSecurity;
+import com.orientechnologies.orient.core.metadata.security.OUser;
+
+import io.smartspaces.scheduling.quartz.orientdb.Constants;
 
 /**
  * The responsibility of this class is create an OrientDB connection with given
@@ -81,7 +106,17 @@ public class StandardOrientDbConnector {
     } catch (JobPersistenceException e) {
       db.rollback();
 
+      e.printStackTrace();
+      
       throw e;
+    } catch (Throwable e) {
+        db.rollback();
+
+        e.printStackTrace();
+        
+        throw new JobPersistenceException("Transaction failed", e);
+      } finally {
+      documentProvider.remove();
     }
 
   }
@@ -94,8 +129,8 @@ public class StandardOrientDbConnector {
     private StandardOrientDbConnector connector = new StandardOrientDbConnector();
 
     private String orientdbUri;
-    private String username;
-    private String password;
+    private String username = "superdooper";
+    private String password = "superdooper";
     private String dbName;
     private String authDbName;
     private int writeTimeout;
@@ -196,9 +231,80 @@ public class StandardOrientDbConnector {
     private OPartitionedDatabasePool connectToOrientDB(String orientdbUriAsString)
         throws SchedulerConfigException {
       try {
+        checkDataBaseExists();
+        
         return new OPartitionedDatabasePool(orientdbUri, username, password);
       } catch (Throwable e) {
         throw new SchedulerConfigException("OrientDB driver thrown an exception", e);
+      }
+    }
+
+
+    /**
+     * Create the database if necessary.
+     * 
+     * @param storeAssembler
+     *          the store assembler that is assembling the database
+     */
+    public void checkDataBaseExists() {
+      ODatabaseDocumentTx db = new ODatabaseDocumentTx(orientdbUri);
+      if (!db.exists()) {
+        db.create();
+        
+        OSecurity sm = db.getMetadata().getSecurity();
+        OUser user = sm.createUser(username, password, new String[] { "admin" } );
+        
+        // TODO(keith): MOve this elsewhere
+        OSchema schema = db.getMetadata().getSchema();
+
+        OClass jobClass = schema.createClass("Job");
+        jobClass.createProperty(Constants.KEY_NAME, OType.STRING);
+        jobClass.createProperty(Constants.KEY_GROUP, OType.STRING);
+        jobClass.createProperty(Constants.JOB_DESCRIPTION, OType.STRING);
+        jobClass.createProperty(Constants.JOB_CLASS, OType.STRING);
+        jobClass.createProperty(Constants.JOB_DATA, OType.STRING);
+        jobClass.createProperty(Constants.JOB_DURABILITY, OType.BOOLEAN);
+        jobClass.createProperty(Constants.JOB_REQUESTS_RECOVERY, OType.BOOLEAN);
+
+        OClass triggerClass = schema.createClass("Trigger");
+        triggerClass.createProperty(Constants.TRIGGER_CLASS, OType.STRING);
+        triggerClass.createProperty(Constants.KEY_NAME, OType.STRING);
+        triggerClass.createProperty(Constants.KEY_GROUP, OType.STRING);
+        triggerClass.createProperty(Constants.TRIGGER_CALENDAR_NAME, OType.STRING);
+        triggerClass.createProperty(Constants.TRIGGER_DESCRIPTION, OType.STRING);
+        triggerClass.createProperty(Constants.TRIGGER_FIRE_INSTANCE_ID, OType.STRING);
+        triggerClass.createProperty(Constants.TRIGGER_MISFIRE_INSTRUCTION, OType.INTEGER);
+        triggerClass.createProperty(Constants.TRIGGER_NEXT_FIRE_TIME, OType.DATE);
+        triggerClass.createProperty(Constants.TRIGGER_PREVIOUS_FIRE_TIME, OType.DATE);
+        triggerClass.createProperty(Constants.TRIGGER_PRIORITY, OType.INTEGER);
+        triggerClass.createProperty(Constants.TRIGGER_START_TIME, OType.DATE);
+        triggerClass.createProperty(Constants.TRIGGER_END_TIME, OType.DATE);
+        triggerClass.createProperty(Constants.TRIGGER_STATE, OType.STRING);
+        triggerClass.createProperty(Constants.TRIGGER_FINAL_FIRE_TIME, OType.DATE);
+        triggerClass.createProperty(Constants.TRIGGER_JOB_ID, OType.LINK, jobClass);
+
+        OClass lockClass = schema.createClass("QuartzLock");
+        lockClass.createProperty(Constants.LOCK_TYPE, OType.STRING);
+        lockClass.createProperty(Constants.KEY_GROUP, OType.STRING);
+        lockClass.createProperty(Constants.KEY_NAME, OType.STRING);
+        lockClass.createProperty(Constants.LOCK_INSTANCE_ID, OType.STRING);
+        lockClass.createProperty(Constants.LOCK_TIME, OType.DATE);
+
+        OClass schedulerClass = schema.createClass("Scheduler");
+        schedulerClass.createProperty(Constants.SCHEDULER_NAME_FIELD, OType.STRING);
+        schedulerClass.createProperty(Constants.SCHEDULER_INSTANCE_ID_FIELD, OType.STRING);
+        schedulerClass.createProperty(Constants.SCHEDULER_LAST_CHECKIN_TIME_FIELD, OType.LONG);
+        schedulerClass.createProperty(Constants.SCHEDULER_CHECKIN_INTERVAL_FIELD, OType.LONG);
+
+        OClass calendarClass = schema.createClass("Calendar");
+        calendarClass.createProperty(Constants.CALENDAR_NAME, OType.STRING);
+        calendarClass.createProperty(Constants.CALENDAR_SERIALIZED_OBJECT, OType.BINARY);
+
+        OClass pausedJobGroupClass = schema.createClass("PausedJobGroup");
+        pausedJobGroupClass.createProperty(Constants.KEY_GROUP, OType.STRING);
+
+        OClass pausedTriggerGroupClass = schema.createClass("PausedTriggerGroup");
+        pausedTriggerGroupClass.createProperty(Constants.KEY_GROUP, OType.STRING);
       }
     }
 

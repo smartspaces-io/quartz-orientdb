@@ -6,7 +6,7 @@ import io.smartspaces.scheduling.quartz.orientdb.MongoHelper
 import io.smartspaces.scheduling.quartz.orientdb.util.Clock
 import io.smartspaces.scheduling.quartz.orientdb.util.Keys
 
-import io.smartspaces.scheduling.quartz.orientdb.dao.StandardLocksDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardLockDao;
 
 import org.quartz.TriggerKey
 import spock.lang.Shared
@@ -26,7 +26,7 @@ class LocksDaoTest extends Specification {
     def 'should have passed collection and instanceId'() {
         given:
         def locksCollection = MongoHelper.getLocksColl()
-        def dao = new StandardLocksDao(locksCollection, testClock, instanceId)
+        def dao = new StandardLockDao(locksCollection, testClock, instanceId)
 
         expect:
         dao.instanceId == instanceId
@@ -134,7 +134,7 @@ class LocksDaoTest extends Specification {
     }
 
     def createDao(Clock clock, String id) {
-        new StandardLocksDao(MongoHelper.getLocksColl(), clock, id)
+        new StandardLockDao(MongoHelper.getLocksColl(), clock, id)
     }
 
     def void assertLock(lock, instanceId, time) {

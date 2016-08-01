@@ -28,13 +28,12 @@ import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.record.impl.ORecordBytes;
 import com.orientechnologies.orient.core.sql.query.OSQLSynchQuery;
 
+import io.smartspaces.scheduling.quartz.orientdb.Constants;
 import io.smartspaces.scheduling.quartz.orientdb.StandardOrientDbStoreAssembler;
 import io.smartspaces.scheduling.quartz.orientdb.util.SerialUtils;
 
 public class StandardCalendarDao {
 
-  static final String CALENDAR_NAME = "name";
-  static final String CALENDAR_SERIALIZED_OBJECT = "serializedObject";
 
   private final StandardOrientDbStoreAssembler storeAssembler;
 
@@ -73,7 +72,7 @@ public class StandardCalendarDao {
     if (calName != null) {
       List<ODocument> result = getCalendarsByName(calName);
       if (!result.isEmpty()) {
-        ORecordBytes serializedCalendar = result.get(0).field(CALENDAR_SERIALIZED_OBJECT);
+        ORecordBytes serializedCalendar = result.get(0).field(Constants.CALENDAR_SERIALIZED_OBJECT);
         return SerialUtils.deserialize(serializedCalendar.toStream(), Calendar.class);
       }
     }
@@ -84,8 +83,8 @@ public class StandardCalendarDao {
     ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
     
     ORecordBytes serializedCalendar = new ORecordBytes(SerialUtils.serialize(calendar));
-    ODocument doc = new ODocument("Calendar").field(CALENDAR_NAME, name)
-        .field(CALENDAR_SERIALIZED_OBJECT, serializedCalendar);
+    ODocument doc = new ODocument("Calendar").field(Constants.CALENDAR_NAME, name)
+        .field(Constants.CALENDAR_SERIALIZED_OBJECT, serializedCalendar);
     doc.save();
   }
   

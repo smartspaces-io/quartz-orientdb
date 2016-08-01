@@ -43,7 +43,7 @@ import com.orientechnologies.orient.core.record.impl.ODocument;
 import io.smartspaces.scheduling.quartz.orientdb.cluster.TriggerRecoverer;
 import io.smartspaces.scheduling.quartz.orientdb.dao.StandardCalendarDao;
 import io.smartspaces.scheduling.quartz.orientdb.dao.StandardJobDao;
-import io.smartspaces.scheduling.quartz.orientdb.dao.StandardLocksDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardLockDao;
 import io.smartspaces.scheduling.quartz.orientdb.dao.StandardTriggerDao;
 import io.smartspaces.scheduling.quartz.orientdb.trigger.MisfireHandler;
 import io.smartspaces.scheduling.quartz.orientdb.trigger.TriggerConverter;
@@ -67,11 +67,11 @@ public class TriggerRunner {
   private LockManager lockManager;
   private TriggerRecoverer recoverer;
   private StandardJobDao jobDao;
-  private StandardLocksDao locksDao;
+  private StandardLockDao locksDao;
   private StandardCalendarDao calendarDao;
 
   public TriggerRunner(TriggerAndJobPersister persister, StandardTriggerDao triggerDao,
-      StandardJobDao jobDao, StandardLocksDao locksDao, StandardCalendarDao calendarDao,
+      StandardJobDao jobDao, StandardLockDao locksDao, StandardCalendarDao calendarDao,
       MisfireHandler misfireHandler, TriggerConverter triggerConverter, LockManager lockManager,
       TriggerRecoverer recoverer) {
     this.persister = persister;

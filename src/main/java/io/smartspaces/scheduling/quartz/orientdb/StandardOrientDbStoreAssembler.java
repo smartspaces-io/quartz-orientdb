@@ -18,13 +18,9 @@
 
 package io.smartspaces.scheduling.quartz.orientdb;
 
-import org.bson.Document;
 import org.quartz.SchedulerConfigException;
 import org.quartz.spi.ClassLoadHelper;
 import org.quartz.spi.SchedulerSignaler;
-
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoDatabase;
 
 import io.smartspaces.scheduling.quartz.orientdb.cluster.CheckinExecutor;
 import io.smartspaces.scheduling.quartz.orientdb.cluster.CheckinTask;
@@ -32,7 +28,7 @@ import io.smartspaces.scheduling.quartz.orientdb.cluster.RecoveryTriggerFactory;
 import io.smartspaces.scheduling.quartz.orientdb.cluster.TriggerRecoverer;
 import io.smartspaces.scheduling.quartz.orientdb.dao.StandardCalendarDao;
 import io.smartspaces.scheduling.quartz.orientdb.dao.StandardJobDao;
-import io.smartspaces.scheduling.quartz.orientdb.dao.StandardLocksDao;
+import io.smartspaces.scheduling.quartz.orientdb.dao.StandardLockDao;
 import io.smartspaces.scheduling.quartz.orientdb.dao.StandardPausedJobGroupsDao;
 import io.smartspaces.scheduling.quartz.orientdb.dao.StandardPausedTriggerGroupsDao;
 import io.smartspaces.scheduling.quartz.orientdb.dao.StandardSchedulerDao;
@@ -55,7 +51,7 @@ public class StandardOrientDbStoreAssembler {
 
   private StandardCalendarDao calendarDao;
   private StandardJobDao jobDao;
-  private StandardLocksDao locksDao;
+  private StandardLockDao locksDao;
   private StandardSchedulerDao schedulerDao;
   private StandardPausedJobGroupsDao pausedJobGroupsDao;
   private StandardPausedTriggerGroupsDao pausedTriggerGroupsDao;
@@ -150,7 +146,7 @@ public class StandardOrientDbStoreAssembler {
     return jobDao;
   }
 
-  public StandardLocksDao getLocksDao() {
+  public StandardLockDao getLocksDao() {
     return locksDao;
   }
 
@@ -188,8 +184,8 @@ public class StandardOrientDbStoreAssembler {
     return new JobCompleteHandler(persister, signaler, jobDao, locksDao, triggerDao);
   }
 
-  private StandardLocksDao createLocksDao(OrientDbJobStore jobStore) {
-    return new StandardLocksDao(this, Clock.SYSTEM_CLOCK, jobStore.instanceId);
+  private StandardLockDao createLocksDao(OrientDbJobStore jobStore) {
+    return new StandardLockDao(this, Clock.SYSTEM_CLOCK, jobStore.instanceId);
   }
 
   private LockManager createLockManager(OrientDbJobStore jobStore) {
@@ -206,7 +202,7 @@ public class StandardOrientDbStoreAssembler {
   private StandardOrientDbConnector createOrientDbConnector(OrientDbJobStore jobStore)
       throws SchedulerConfigException {
     return StandardOrientDbConnector.builder().withUri(jobStore.orientdbUri)
-        .withCredentials(jobStore.username, jobStore.password)
+        .withCredentials(jobStore.getUsername(), jobStore.getPassword())
         .withDatabaseName(jobStore.dbName).withAuthDatabaseName(jobStore.authDbName)
         .withMaxConnectionsPerHost(jobStore.mongoOptionMaxConnectionsPerHost)
         .withConnectTimeoutMillis(jobStore.mongoOptionConnectTimeoutMillis)

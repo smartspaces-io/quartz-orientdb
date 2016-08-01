@@ -20,14 +20,12 @@ package io.smartspaces.scheduling.quartz.orientdb.util;
 
 import java.util.Date;
 
-import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.quartz.JobKey;
 import org.quartz.TriggerKey;
 import org.quartz.utils.Key;
 
 import com.mongodb.client.model.Filters;
-import com.mongodb.client.model.Projections;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 
 /*
@@ -49,31 +47,9 @@ import com.orientechnologies.orient.core.record.impl.ODocument;
  */
 
 import io.smartspaces.scheduling.quartz.orientdb.Constants;
+import io.smartspaces.scheduling.quartz.orientdb.Constants.LockType;
 
 public class Keys {
-
-  public enum LockType {
-    /**
-     * A trigger lock.
-     */
-    trigger, 
-    
-    /**
-     * A job lock.
-     */
-    job
-  }
-
-  public static final String LOCK_TYPE = "type";
-  public static final String KEY_NAME = "keyName";
-  public static final String KEY_GROUP = "keyGroup";
-
-  public static final Bson KEY_AND_GROUP_FIELDS = Projections.include(KEY_GROUP, KEY_NAME);
-
-  public static Bson createLockRefreshFilter(String instanceId) {
-    return Filters.eq(Constants.LOCK_INSTANCE_ID, instanceId);
-  }
-
 
   public static ODocument createJobLock(JobKey jobKey, String instanceId, Date lockTime) {
     return createLock(LockType.job, instanceId, jobKey, lockTime);
@@ -85,27 +61,27 @@ public class Keys {
   }
 
   public static Bson toFilter(Key<?> key) {
-    return Filters.and(Filters.eq(KEY_GROUP, key.getGroup()), Filters.eq(KEY_NAME, key.getName()));
+    return Filters.and(Filters.eq(Constants.KEY_GROUP, key.getGroup()), Filters.eq(Constants.KEY_NAME, key.getName()));
   }
 
   public static Bson toFilter(Key<?> key, String instanceId) {
-    return Filters.and(Filters.eq(KEY_GROUP, key.getGroup()), Filters.eq(KEY_NAME, key.getName()),
+    return Filters.and(Filters.eq(Constants.KEY_GROUP, key.getGroup()), Filters.eq(Constants.KEY_NAME, key.getName()),
         Filters.eq(Constants.LOCK_INSTANCE_ID, instanceId));
   }
 
   public static JobKey toJobKey(ODocument dbo) {
-    return new JobKey((String) dbo.field(KEY_NAME), (String) dbo.field(KEY_GROUP));
+    return new JobKey((String) dbo.field(Constants.KEY_NAME), (String) dbo.field(Constants.KEY_GROUP));
   }
 
   public static TriggerKey toTriggerKey(ODocument dbo) {
-    return new TriggerKey((String)dbo.field(KEY_NAME), (String)dbo.field(KEY_GROUP));
+    return new TriggerKey((String)dbo.field(Constants.KEY_NAME), (String)dbo.field(Constants.KEY_GROUP));
   }
 
   private static ODocument createLock(LockType type, String instanceId, Key<?> key, Date lockTime) {
-    ODocument lock = new ODocument();
-    lock.field(LOCK_TYPE, type.name());
-    lock.field(KEY_GROUP, key.getGroup());
-    lock.field(KEY_NAME, key.getName());
+    ODocument lock = new ODocument("QuartzLock");
+    lock.field(Constants.LOCK_TYPE, type.name());
+    lock.field(Constants.KEY_GROUP, key.getGroup());
+    lock.field(Constants.KEY_NAME, key.getName());
     lock.field(Constants.LOCK_INSTANCE_ID, instanceId);
     lock.field(Constants.LOCK_TIME, lockTime);
     return lock;
