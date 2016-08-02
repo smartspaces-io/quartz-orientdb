@@ -49,10 +49,10 @@ import org.quartz.spi.OperableTrigger;
 import org.quartz.spi.SchedulerSignaler;
 import org.quartz.spi.TriggerFiredResult;
 
-import io.smartspaces.scheduling.quartz.orientdb.impl.StandardOrientDbStoreAssembler;
-import io.smartspaces.scheduling.quartz.orientdb.impl.cluster.CheckinExecutor;
-import io.smartspaces.scheduling.quartz.orientdb.impl.db.StandardOrientDbConnector;
-import io.smartspaces.scheduling.quartz.orientdb.impl.db.StandardOrientDbConnector.TransactionMethod;
+import io.smartspaces.scheduling.quartz.orientdb.internal.StandardOrientDbStoreAssembler;
+import io.smartspaces.scheduling.quartz.orientdb.internal.cluster.CheckinExecutor;
+import io.smartspaces.scheduling.quartz.orientdb.internal.db.StandardOrientDbConnector;
+import io.smartspaces.scheduling.quartz.orientdb.internal.db.StandardOrientDbConnector.TransactionMethod;
 
 /**
  * The Quartz Job Store that uses OrientDB.

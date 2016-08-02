@@ -6,9 +6,11 @@ buildscript {
 
 apply plugin: 'java'
 apply plugin: 'osgi'
-apply plugin: 'groovy'
 apply plugin: 'idea'
 apply plugin: 'eclipse'
+
+// For testing
+//apply plugin: 'groovy'
 
 repositories {
     mavenCentral()
@@ -17,65 +19,43 @@ repositories {
 sourceCompatibility = 1.7
 targetCompatibility = 1.7
 
-configurations {
-    provided
-    compile.extendsFrom provided
-}
-sourceSets {
-    main { compileClasspath += configurations.provided }
-}
-
-idea {
-    module {
-        scopes.PROVIDED.plus += [configurations.provided]
-    }
-}
 dependencies {
-    compile("org.quartz-scheduler:quartz:2.1.7")
-    //compile("org.mongodb:mongo-java-driver:3.2.2")
-    compile("joda-time:joda-time:2.8.2")
-    compile("commons-codec:commons-codec:1.10")
-    compile("org.slf4j:slf4j-api:1.7.10")
-    provided("org.clojure:clojure:1.7.0")
+  compile("org.quartz-scheduler:quartz:2.1.7")
+  compile("commons-codec:commons-codec:1.10")
+  compile("org.slf4j:slf4j-api:1.7.10")
 	
-    compile fileTree(dir: 'jars', include: '*.jar') 
+  compile fileTree(dir: 'jars', include: '*.jar') 
 
-    //testCompile("org.slf4j:slf4j-simple:1.7.10")
-    //testCompile("org.codehaus.groovy:groovy-all:2.4.1")
-    //testCompile("org.spockframework:spock-core:1.0-groovy-2.4")
-    //testRuntime("cglib:cglib-nodep:3.1")
-    //testRuntime("org.objenesis:objenesis:2.1")
+  //testCompile("joda-time:joda-time:2.8.2")
+  //testCompile("org.slf4j:slf4j-simple:1.7.10")
+  //testCompile("org.codehaus.groovy:groovy-all:2.4.1")
+  //testCompile("org.spockframework:spock-core:1.0-groovy-2.4")
+  //testRuntime("cglib:cglib-nodep:3.1")
+  //testRuntime("org.objenesis:objenesis:2.1")
 }
 
 artifacts {
   archives jar
 }
 
-//install.dependsOn build
-
 group='smartspaces'
 version =  '1.0.0-alpha1-SNAPSHOT'
 
 jar {
-    baseName = 'quartz-orientdb'
+  baseName = 'quartz-orientdb'
 
-	manifest {
-	  //version = osgiVersion
-	  //symbolicName = 'smartspaces'
-  
-	  instruction 'Export-Package',
-		  '!io.smartspaces.scheduling.quartz.orientdb.impl.*',
-		  'io.smartspaces.scheduling.quartz.orientdb.*'
+  manifest {
+    instruction 'Export-Package',
+      '!io.smartspaces.scheduling.quartz.orientdb.internal.*',
+      'io.smartspaces.scheduling.quartz.orientdb.*'
 		  
-	  instruction 'Private-Package',
-		  'io.smartspaces.scheduling.quartz.orientdb.impl.*'
+	instruction 'Private-Package',
+      'io.smartspaces.scheduling.quartz.orientdb.internal.*'
 
-	  instruction 'Import-Package',
-		  '*'
-	}
+	instruction 'Import-Package',
+      '*'
   }
-
-//defaultTasks 'install'
+}
   
 task wrapper(type: Wrapper) {
     gradleVersion = '2.14'
