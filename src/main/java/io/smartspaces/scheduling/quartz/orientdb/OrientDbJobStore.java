@@ -49,12 +49,10 @@ import org.quartz.spi.OperableTrigger;
 import org.quartz.spi.SchedulerSignaler;
 import org.quartz.spi.TriggerFiredResult;
 
-import com.mongodb.MongoCommandException;
-import com.mongodb.MongoException;
-
-import io.smartspaces.scheduling.quartz.orientdb.cluster.CheckinExecutor;
-import io.smartspaces.scheduling.quartz.orientdb.db.StandardOrientDbConnector;
-import io.smartspaces.scheduling.quartz.orientdb.db.StandardOrientDbConnector.TransactionMethod;
+import io.smartspaces.scheduling.quartz.orientdb.impl.StandardOrientDbStoreAssembler;
+import io.smartspaces.scheduling.quartz.orientdb.impl.cluster.CheckinExecutor;
+import io.smartspaces.scheduling.quartz.orientdb.impl.db.StandardOrientDbConnector;
+import io.smartspaces.scheduling.quartz.orientdb.impl.db.StandardOrientDbConnector.TransactionMethod;
 
 /**
  * The Quartz Job Store that uses OrientDB.
@@ -63,13 +61,13 @@ public class OrientDbJobStore implements JobStore {
 
 	private StandardOrientDbStoreAssembler assembler = new StandardOrientDbStoreAssembler();
 
-	String collectionPrefix = "quartz_";
-	String dbName;
-	String authDbName;
-	String schedulerName;
-	String instanceId;
-	String[] addresses;
-	String orientdbUri;
+	private String collectionPrefix = "quartz_";
+	private String dbName;
+	private String authDbName;
+	private String schedulerName;
+	private String instanceId;
+	private String[] addresses;
+	private String orientDbUri;
 	private String username = "sooperdooper";
 	private String password = "sooperdooper";
 	long misfireThreshold = 5000;
@@ -93,7 +91,7 @@ public class OrientDbJobStore implements JobStore {
 	}
 
 	public OrientDbJobStore(final String orientdbUri, final String username, final String password) {
-		this.orientdbUri = orientdbUri;
+		this.orientDbUri = orientdbUri;
 		this.username = username;
 		this.password = password;
 	}
@@ -105,7 +103,7 @@ public class OrientDbJobStore implements JobStore {
 	 *            default provided by Quartz
 	 * @return loader to use for loading of Quartz Jobs' classes
 	 */
-	protected ClassLoadHelper getClassLoaderHelper(ClassLoadHelper original) {
+	public ClassLoadHelper getClassLoaderHelper(ClassLoadHelper original) {
 		return original;
 	}
 
@@ -668,6 +666,10 @@ public class OrientDbJobStore implements JobStore {
 		schedulerName = schedName;
 	}
 
+	public String getInstanceId() {
+		return instanceId;
+	}
+
 	@Override
 	public void setThreadPoolSize(int poolSize) {
 		// No-op
@@ -675,6 +677,14 @@ public class OrientDbJobStore implements JobStore {
 
 	public void setAddresses(String addresses) {
 		this.addresses = addresses.split(",");
+	}
+
+	public String getSchedulerName() {
+		return schedulerName;
+	}
+
+	public void setSchedulerName(String schedulerName) {
+		this.schedulerName = schedulerName;
 	}
 
 	public String getDbName() {
@@ -689,8 +699,12 @@ public class OrientDbJobStore implements JobStore {
 		collectionPrefix = prefix + "_";
 	}
 
-	public void setOrientdbUri(final String orientdbUri) {
-		this.orientdbUri = orientdbUri;
+	public void setOrientDbUri(final String orientdbUri) {
+		this.orientDbUri = orientdbUri;
+	}
+
+	public String getOrientDbUri() {
+		return orientDbUri;
 	}
 
 	public void setUsername(String username) {
@@ -713,12 +727,32 @@ public class OrientDbJobStore implements JobStore {
 		this.misfireThreshold = misfireThreshold;
 	}
 
+	public long getMisfireThreshold() {
+		return misfireThreshold;
+	}
+
 	public void setTriggerTimeoutMillis(long triggerTimeoutMillis) {
 		this.triggerTimeoutMillis = triggerTimeoutMillis;
 	}
 
+	public long getTriggerTimeoutMillis() {
+		return triggerTimeoutMillis;
+	}
+
 	public void setJobTimeoutMillis(long jobTimeoutMillis) {
 		this.jobTimeoutMillis = jobTimeoutMillis;
+	}
+
+	public long getJobTimeoutMillis() {
+		return jobTimeoutMillis;
+	}
+
+	public long getClusterCheckinIntervalMillis() {
+		return clusterCheckinIntervalMillis;
+	}
+
+	public void setClusterCheckinIntervalMillis(long clusterCheckinIntervalMillis) {
+		this.clusterCheckinIntervalMillis = clusterCheckinIntervalMillis;
 	}
 
 	/**
@@ -751,10 +785,10 @@ public class OrientDbJobStore implements JobStore {
 				assembler.getJobDao().dropIndex();
 				assembler.getTriggerDao().dropIndex();
 				assembler.getLocksDao().dropIndex();
-			} catch (MongoCommandException cfe) {
+			} catch (Exception cfe) {
 				// Ignore, the old indexes have already been removed
 			}
-		} catch (MongoException e) {
+		} catch (Exception e) {
 			throw new SchedulerConfigException("Error while initializing the indexes", e);
 		}
 	}
