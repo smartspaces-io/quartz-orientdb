@@ -56,20 +56,15 @@ public class StandardJobDao {
     this.jobConverter = jobConverter;
   }
 
+  public void startup() {
+    // Nothing to do
+  }
+
   public void removeAll() {
     ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
     for (ODocument job : database.browseClass("Job")) {
       job.delete();
     }
-  }
-
-  public void createIndex() {
-    // jobCollection.createIndex(Keys.KEY_AND_GROUP_FIELDS, new
-    // IndexOptions().unique(true));
-  }
-
-  public void dropIndex() {
-    // jobCollection.dropIndex("keyName_1_keyGroup_1");
   }
 
   public boolean exists(JobKey jobKey) {

@@ -4,3 +4,4 @@ Converted project from MongDB to OrientDB.
 Removed tests :( because all were for a running MongoDB instance. 
 Removed clojure. 
 Made into OSGi bundle
+OrientDB indices being used.

@@ -24,7 +24,7 @@ Table prefixes need to be added.
 
 Queries that can be pre-compiled should be precompiled. This will speed up access.
 
-Get indices into OrientDB tables to enforce uniqueness and speed up access.
+Figure out why can't handle regularly scheduled jobs with a cycle of less than 40 seconds.
 
 The code needs a lot of refactoring and cleanup. 
 

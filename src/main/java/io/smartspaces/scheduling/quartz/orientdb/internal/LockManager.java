@@ -83,16 +83,20 @@ public class LockManager {
   /**
    * Try to lock given trigger, ignoring errors.
    * 
-   * @param key
+   * @param triggerKey
    *          trigger to lock
-   * @return true when successfully locked, false otherwise
+   *          
+   * @return {@code true} when successfully locked
    */
-  public boolean tryLock(TriggerKey key) {
+  public boolean tryTriggerLock(TriggerKey triggerKey) {
+	if (locksDao.doesTriggerLockExist(triggerKey)) {
+	  return false;
+	}
     try {
-      locksDao.lockTrigger(key);
+      locksDao.lockTrigger(triggerKey);
       return true;
     } catch (Exception e) {
-      log.info("Failed to lock trigger {}, reason: {}", key, e.getMessage());
+      log.info("Failed to lock trigger {}, reason: {}", triggerKey, e.getMessage());
     }
     return false;
   }

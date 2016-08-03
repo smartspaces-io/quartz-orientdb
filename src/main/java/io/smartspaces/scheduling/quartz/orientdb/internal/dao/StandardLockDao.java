@@ -52,28 +52,11 @@ public class StandardLockDao {
   private Clock clock;
   private final String instanceId;
 
-  public StandardLockDao(StandardOrientDbStoreAssembler storeAssembler, Clock clock, String instanceId) {
+  public StandardLockDao(StandardOrientDbStoreAssembler storeAssembler, Clock clock,
+      String instanceId) {
     this.storeAssembler = storeAssembler;
     this.clock = clock;
     this.instanceId = instanceId;
-  }
-
-  public void createIndex(boolean clustered) {
-    /*
-     * locksCollection.createIndex(Projections.include(KEY_GROUP, KEY_NAME,
-     * LOCK_TYPE), new IndexOptions().unique(true));
-     * 
-     * if (!clustered) { // Need this to stop table scan when removing all locks
-     * locksCollection.createIndex(Projections.include(LOCK_INSTANCE_ID));
-     * 
-     * // remove all locks for this instance on startup
-     * locksCollection.deleteMany(Filters.eq(LOCK_INSTANCE_ID, instanceId)); }
-     */
-  }
-
-  public void dropIndex() {
-    // locksCollection.dropIndex("keyName_1_keyGroup_1");
-    // locksCollection.dropIndex(KEY_AND_GROUP_FIELDS);
   }
 
   /**
@@ -95,6 +78,18 @@ public class StandardLockDao {
   }
 
   /**
+   * Does a lock exist for the specified trigger?
+   * 
+   * @param triggerKey
+   *          the key for the trigger
+   * 
+   * @return {@code true} if a lock for the given trigger exists
+   */
+  public boolean doesJobLockExist(JobKey jobKey) {
+    return findJobLock(jobKey) != null;
+  }
+
+  /**
    * Find the lock for a given trigger, if it exists.
    * 
    * @param triggerKey
@@ -113,6 +108,18 @@ public class StandardLockDao {
   }
 
   /**
+   * Does a lock exist for the specified trigger?
+   * 
+   * @param triggerKey
+   *          the key for the trigger
+   * 
+   * @return {@code true} if a lock for the given trigger exists
+   */
+  public boolean doesTriggerLockExist(TriggerKey triggerKey) {
+    return findTriggerLock(triggerKey) != null;
+  }
+
+  /**
    * Get the keys for all triggers that have locks in this instance.
    * 
    * @return the trigger keys
@@ -127,7 +134,8 @@ public class StandardLockDao {
   }
 
   private List<ODocument> getInstanceLocksByLockType(LockType lockType) {
-    // TODO(keith): class and field names should come from external constants
+    // TODO(keith): class and field names should come from external
+    // constants
     // Also create query ahead of time when DAO starts.
     OSQLSynchQuery<ODocument> query =
         new OSQLSynchQuery<ODocument>("select from QuartzLock where instanceId=? and type=?");
@@ -137,13 +145,13 @@ public class StandardLockDao {
   }
 
   public void lockJob(JobDetail job) {
-    log.debug("Inserting lock for job {}", job.getKey());
+    log.warn("Inserting lock for job {}", job.getKey());
     ODocument lock = createJobLock(job.getKey(), instanceId, clock.now());
     lock.save();
   }
 
   public void lockTrigger(TriggerKey key) {
-    log.info("Inserting lock for trigger {}", key);
+    log.warn("Inserting lock for trigger {}", key);
     ODocument lock = createTriggerLock(key, instanceId, clock.now());
     lock.save();
   }
@@ -165,8 +173,11 @@ public class StandardLockDao {
    * @return {@code false} when not found or caught an exception
    */
   public boolean relock(TriggerKey key, Date lockTime) {
+    log.warn("Relock for trigger {} to date ()", key, lockTime);
+
     try {
-      // TODO(keith): class and field names should come from external constants
+      // TODO(keith): class and field names should come from external
+      // constants
       // Also create query ahead of time when DAO starts.
       OSQLSynchQuery<ODocument> query = new OSQLSynchQuery<ODocument>(
           "select from QuartzLock where instanceId=? and type=? and keyGroup=? and keyName=? and time=?");
@@ -200,8 +211,10 @@ public class StandardLockDao {
    *           in case of errors from OrientDB
    */
   public boolean updateOwnLock(TriggerKey key) throws JobPersistenceException {
+    log.warn("Updating own lock for trigger {}", key);
     try {
-      // TODO(keith): class and field names should come from external constants
+      // TODO(keith): class and field names should come from external
+      // constants
       // Also create query ahead of time when DAO starts.
       OSQLSynchQuery<ODocument> query = new OSQLSynchQuery<ODocument>(
           "select from QuartzLock where instanceId=? and keyGroup=? and keyName=?");
@@ -229,7 +242,7 @@ public class StandardLockDao {
    *          to unlock
    */
   public void unlockTrigger(OperableTrigger trigger) {
-    log.info("Removing trigger lock {}.{}", trigger.getKey(), instanceId);
+    log.warn("Removing trigger lock {}.{}", trigger.getKey(), instanceId);
     List<ODocument> locks = createLockFilter(LockType.trigger, trigger.getKey());
     for (ODocument lock : locks) {
       lock.delete();
@@ -238,20 +251,39 @@ public class StandardLockDao {
   }
 
   public void unlockJob(JobDetail job) {
-    log.debug("Removing lock for job {}", job.getKey());
+    log.warn("Removing lock for job {}", job.getKey());
 
     List<ODocument> locks = createLockFilter(LockType.job, job.getKey());
     for (ODocument lock : locks) {
       lock.delete();
     }
   }
-  
+
   public void remove(ODocument lockDoc) {
     lockDoc.delete();
   }
 
+  /**
+   * Remove all locks associated with the given instance ID.
+   */
+  public void removeAllInstanceLocks() {
+    // TODO(keith): class and field names should come from external
+    // constants
+    // Also create query ahead of time when DAO starts.
+    OSQLSynchQuery<ODocument> query = new OSQLSynchQuery<ODocument>(
+        "select from QuartzLock where instanceId=?");
+    ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
+    List<ODocument> result =
+        database.command(query).execute(instanceId);
+
+    for (ODocument lock : result) {
+      lock.delete();
+    }
+  }
+
   private List<ODocument> createLockFilter(LockType lockType, Key<?> key) {
-    // TODO(keith): class and field names should come from external constants
+    // TODO(keith): class and field names should come from external
+    // constants
     // Also create query ahead of time when DAO starts.
     OSQLSynchQuery<ODocument> query = new OSQLSynchQuery<ODocument>(
         "select from QuartzLock where instanceId=? and type=? and keyGroup=? and keyName=?");
@@ -261,5 +293,4 @@ public class StandardLockDao {
 
     return result;
   }
-
 }

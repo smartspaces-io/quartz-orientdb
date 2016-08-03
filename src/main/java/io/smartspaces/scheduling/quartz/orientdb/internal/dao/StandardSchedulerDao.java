@@ -53,12 +53,6 @@ public class StandardSchedulerDao {
     this.clock = clock;
   }
 
-  public void createIndex() {
-    // schedulerCollection.createIndex(Projections.include(SCHEDULER_NAME_FIELD,
-    // INSTANCE_ID_FIELD),
-    // new IndexOptions().unique(true));
-  }
-
   /**
    * Checks-in in cluster to inform other nodes that its alive.
    */

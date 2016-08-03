@@ -107,15 +107,15 @@ public class StandardOrientDbConnector {
       db.rollback();
 
       e.printStackTrace();
-      
+
       throw e;
     } catch (Throwable e) {
-        db.rollback();
+      db.rollback();
 
-        e.printStackTrace();
-        
-        throw new JobPersistenceException("Transaction failed", e);
-      } finally {
+      e.printStackTrace();
+
+      throw new JobPersistenceException("Transaction failed", e);
+    } finally {
       documentProvider.remove();
     }
 
@@ -193,7 +193,8 @@ public class StandardOrientDbConnector {
     // return new MongoClient(serverAddresses, credentials, options);
     // } catch (MongoException e) {
 
-    // throw new SchedulerConfigExceDption("Could not connect to MongoDB", e);
+    // throw new SchedulerConfigExceDption("Could not connect to MongoDB",
+    // e);
     // }
     // }
     //
@@ -202,7 +203,8 @@ public class StandardOrientDbConnector {
     // }
     //
     // private List<MongoCredential> createCredentials() {
-    // List<MongoCredential> credentials = new ArrayList<MongoCredential>(1);
+    // List<MongoCredential> credentials = new
+    // ArrayList<MongoCredential>(1);
     // if (username != null) {
     // if (authDbName != null) {
     // // authenticating to db which gives access to all other dbs (role -
@@ -232,13 +234,12 @@ public class StandardOrientDbConnector {
         throws SchedulerConfigException {
       try {
         checkDataBaseExists();
-        
+
         return new OPartitionedDatabasePool(orientdbUri, username, password);
       } catch (Throwable e) {
         throw new SchedulerConfigException("OrientDB driver thrown an exception", e);
       }
     }
-
 
     /**
      * Create the database if necessary.
@@ -250,26 +251,29 @@ public class StandardOrientDbConnector {
       ODatabaseDocumentTx db = new ODatabaseDocumentTx(orientdbUri);
       if (!db.exists()) {
         db.create();
-        
+
         OSecurity sm = db.getMetadata().getSecurity();
-        OUser user = sm.createUser(username, password, new String[] { "admin" } );
-        
+        OUser user = sm.createUser(username, password, new String[] { "admin" });
+
         // TODO(keith): MOve this elsewhere
         OSchema schema = db.getMetadata().getSchema();
 
         OClass jobClass = schema.createClass("Job");
-        jobClass.createProperty(Constants.KEY_NAME, OType.STRING);
-        jobClass.createProperty(Constants.KEY_GROUP, OType.STRING);
+        jobClass.createProperty(Constants.KEY_NAME, OType.STRING).setNotNull(true);
+        jobClass.createProperty(Constants.KEY_GROUP, OType.STRING).setNotNull(true);
         jobClass.createProperty(Constants.JOB_DESCRIPTION, OType.STRING);
         jobClass.createProperty(Constants.JOB_CLASS, OType.STRING);
         jobClass.createProperty(Constants.JOB_DATA, OType.STRING);
         jobClass.createProperty(Constants.JOB_DURABILITY, OType.BOOLEAN);
         jobClass.createProperty(Constants.JOB_REQUESTS_RECOVERY, OType.BOOLEAN);
 
+        jobClass.createIndex("JOBS.key_NAME.key_group", OClass.INDEX_TYPE.UNIQUE,
+            Constants.KEY_GROUP, Constants.KEY_NAME);
+
         OClass triggerClass = schema.createClass("Trigger");
         triggerClass.createProperty(Constants.TRIGGER_CLASS, OType.STRING);
-        triggerClass.createProperty(Constants.KEY_NAME, OType.STRING);
-        triggerClass.createProperty(Constants.KEY_GROUP, OType.STRING);
+        triggerClass.createProperty(Constants.KEY_NAME, OType.STRING).setNotNull(true);
+        triggerClass.createProperty(Constants.KEY_GROUP, OType.STRING).setNotNull(true);
         triggerClass.createProperty(Constants.TRIGGER_CALENDAR_NAME, OType.STRING);
         triggerClass.createProperty(Constants.TRIGGER_DESCRIPTION, OType.STRING);
         triggerClass.createProperty(Constants.TRIGGER_FIRE_INSTANCE_ID, OType.STRING);
@@ -285,22 +289,36 @@ public class StandardOrientDbConnector {
         triggerClass.createProperty(Constants.TRIGGER_CRON_EXPRESSION, OType.STRING);
         triggerClass.createProperty(Constants.TRIGGER_TIMEZONE, OType.STRING);
 
+        triggerClass.createIndex("TRIGGERS.key_NAME.key_group", OClass.INDEX_TYPE.UNIQUE,
+            Constants.KEY_GROUP, Constants.KEY_NAME);
+
         OClass lockClass = schema.createClass("QuartzLock");
-        lockClass.createProperty(Constants.LOCK_TYPE, OType.STRING);
-        lockClass.createProperty(Constants.KEY_GROUP, OType.STRING);
-        lockClass.createProperty(Constants.KEY_NAME, OType.STRING);
+        lockClass.createProperty(Constants.LOCK_TYPE, OType.STRING).setNotNull(true);
+        lockClass.createProperty(Constants.KEY_GROUP, OType.STRING).setNotNull(true);
+        lockClass.createProperty(Constants.KEY_NAME, OType.STRING).setNotNull(true);
         lockClass.createProperty(Constants.LOCK_INSTANCE_ID, OType.STRING);
         lockClass.createProperty(Constants.LOCK_TIME, OType.DATE);
 
+        lockClass.createIndex("LOCKS.type_group_name", OClass.INDEX_TYPE.UNIQUE,
+            Constants.KEY_GROUP, Constants.KEY_NAME, Constants.LOCK_TYPE);
+
         OClass schedulerClass = schema.createClass("Scheduler");
-        schedulerClass.createProperty(Constants.SCHEDULER_NAME_FIELD, OType.STRING);
-        schedulerClass.createProperty(Constants.SCHEDULER_INSTANCE_ID_FIELD, OType.STRING);
+        schedulerClass.createProperty(Constants.SCHEDULER_NAME_FIELD, OType.STRING)
+            .setNotNull(true);
+        schedulerClass.createProperty(Constants.SCHEDULER_INSTANCE_ID_FIELD, OType.STRING)
+            .setNotNull(true);
         schedulerClass.createProperty(Constants.SCHEDULER_LAST_CHECKIN_TIME_FIELD, OType.LONG);
         schedulerClass.createProperty(Constants.SCHEDULER_CHECKIN_INTERVAL_FIELD, OType.LONG);
+
+        schedulerClass.createIndex("SCHEDULERS.name_instance", OClass.INDEX_TYPE.UNIQUE,
+            Constants.SCHEDULER_NAME_FIELD, Constants.SCHEDULER_INSTANCE_ID_FIELD);
 
         OClass calendarClass = schema.createClass("Calendar");
         calendarClass.createProperty(Constants.CALENDAR_NAME, OType.STRING);
         calendarClass.createProperty(Constants.CALENDAR_SERIALIZED_OBJECT, OType.BINARY);
+
+        calendarClass.createIndex("CALENDARS.NAME", OClass.INDEX_TYPE.UNIQUE,
+            Constants.CALENDAR_NAME);
 
         OClass pausedJobGroupClass = schema.createClass("PausedJobGroup");
         pausedJobGroupClass.createProperty(Constants.KEY_GROUP, OType.STRING);
@@ -315,8 +333,10 @@ public class StandardOrientDbConnector {
       // are propagated to secondaries in a Replica Set. It allows us to
       // have consistent state in case of failure of the primary.
       //
-      // Since MongoDB 3.2, when MAJORITY is used and protocol version == 1
-      // for replica set, then Journaling in enabled by default for primary
+      // Since MongoDB 3.2, when MAJORITY is used and protocol version ==
+      // 1
+      // for replica set, then Journaling in enabled by default for
+      // primary
       // and secondaries.
       // WriteConcern writeConcern =
       // WriteConcern.MAJORITY.withWTimeout(writeTimeout,

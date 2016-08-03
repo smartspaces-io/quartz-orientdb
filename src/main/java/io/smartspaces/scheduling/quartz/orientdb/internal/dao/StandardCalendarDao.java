@@ -41,16 +41,15 @@ public class StandardCalendarDao {
     this.storeAssembler = storeAssembler;
   }
 
+  public void startup() {
+    // Nothing to do
+  }
+  
   public void removeAll() {
     ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
     for (ODocument calendar : database.browseClass("Calendar")) {
       calendar.delete();
     }
-  }
-
-  public void createIndex() {
-    // calendarCollection.createIndex(Projections.include(CALENDAR_NAME),
-    // new IndexOptions().unique(true));
   }
 
   public int getCount() {
