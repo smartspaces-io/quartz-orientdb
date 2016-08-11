@@ -145,13 +145,13 @@ public class StandardLockDao {
   }
 
   public void lockJob(JobDetail job) {
-    log.warn("Inserting lock for job {}", job.getKey());
+    log.debug("Inserting lock for job {}", job.getKey());
     ODocument lock = createJobLock(job.getKey(), instanceId, clock.now());
     lock.save();
   }
 
   public void lockTrigger(TriggerKey key) {
-    log.warn("Inserting lock for trigger {}", key);
+    log.debug("Inserting lock for trigger {}", key);
     ODocument lock = createTriggerLock(key, instanceId, clock.now());
     lock.save();
   }
@@ -173,8 +173,6 @@ public class StandardLockDao {
    * @return {@code false} when not found or caught an exception
    */
   public boolean relock(TriggerKey key, Date lockTime) {
-    log.warn("Relock for trigger {} to date ()", key, lockTime);
-
     try {
       // TODO(keith): class and field names should come from external
       // constants
@@ -195,7 +193,7 @@ public class StandardLockDao {
       return false;
     }
 
-    log.info("Scheduler {} relocked the trigger: {}", instanceId, key);
+    log.debug("Scheduler {} relocked the trigger: {}", instanceId, key);
     return true;
   }
 
@@ -211,7 +209,7 @@ public class StandardLockDao {
    *           in case of errors from OrientDB
    */
   public boolean updateOwnLock(TriggerKey key) throws JobPersistenceException {
-    log.warn("Updating own lock for trigger {}", key);
+    log.debug("Updating own lock for trigger {}", key);
     try {
       // TODO(keith): class and field names should come from external
       // constants
@@ -231,7 +229,7 @@ public class StandardLockDao {
       throw new JobPersistenceException("Lock refresh for scheduler: " + instanceId, e);
     }
 
-    log.info("Scheduler {} refreshed locking time.", instanceId);
+    log.debug("Scheduler {} refreshed locking time.", instanceId);
     return true;
   }
 
@@ -242,16 +240,15 @@ public class StandardLockDao {
    *          to unlock
    */
   public void unlockTrigger(OperableTrigger trigger) {
-    log.warn("Removing trigger lock {}.{}", trigger.getKey(), instanceId);
     List<ODocument> locks = createLockFilter(LockType.trigger, trigger.getKey());
     for (ODocument lock : locks) {
       lock.delete();
     }
-    log.info("Trigger lock {}.{} removed.", trigger.getKey(), instanceId);
+    log.debug("Trigger lock {}.{} removed.", trigger.getKey(), instanceId);
   }
 
   public void unlockJob(JobDetail job) {
-    log.warn("Removing lock for job {}", job.getKey());
+    log.debug("Removing lock for job {}", job.getKey());
 
     List<ODocument> locks = createLockFilter(LockType.job, job.getKey());
     for (ODocument lock : locks) {

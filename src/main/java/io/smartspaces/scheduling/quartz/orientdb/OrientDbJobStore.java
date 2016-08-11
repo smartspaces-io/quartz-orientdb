@@ -27,10 +27,10 @@
 
 package io.smartspaces.scheduling.quartz.orientdb;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import io.smartspaces.scheduling.quartz.orientdb.internal.StandardOrientDbStoreAssembler;
+import io.smartspaces.scheduling.quartz.orientdb.internal.cluster.CheckinExecutor;
+import io.smartspaces.scheduling.quartz.orientdb.internal.db.StandardOrientDbConnector;
+import io.smartspaces.scheduling.quartz.orientdb.internal.db.StandardOrientDbConnector.TransactionMethod;
 
 import org.quartz.Calendar;
 import org.quartz.JobDetail;
@@ -49,10 +49,11 @@ import org.quartz.spi.OperableTrigger;
 import org.quartz.spi.SchedulerSignaler;
 import org.quartz.spi.TriggerFiredResult;
 
-import io.smartspaces.scheduling.quartz.orientdb.internal.StandardOrientDbStoreAssembler;
-import io.smartspaces.scheduling.quartz.orientdb.internal.cluster.CheckinExecutor;
-import io.smartspaces.scheduling.quartz.orientdb.internal.db.StandardOrientDbConnector;
-import io.smartspaces.scheduling.quartz.orientdb.internal.db.StandardOrientDbConnector.TransactionMethod;
+import java.util.Collection;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * The Quartz Job Store that uses OrientDB.

@@ -107,7 +107,7 @@ public class TriggerRunner {
     List<TriggerFiredResult> results = new ArrayList<TriggerFiredResult>(triggers.size());
 
     for (OperableTrigger trigger : triggers) {
-      log.debug("Fired trigger {}", trigger.getKey());
+      log.info("Fired trigger {}", trigger.getKey());
 
       TriggerFiredBundle bundle = createTriggerFiredBundle(trigger);
 

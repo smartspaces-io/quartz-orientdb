@@ -192,6 +192,9 @@ public class StandardTriggerDao {
   }
 
   public void replace(TriggerKey triggerKey, ODocument triggerUpdate) {
+    if (log.isInfoEnabled()) {
+      log.info("Replacing trigger {} triggers wwith data {} at {}", triggerKey, triggerUpdate, new Date());
+    }
     for (ODocument trigger : getTriggersByKey(triggerKey)) {
       trigger.merge(triggerUpdate, true, true).save();
     }
