@@ -5,6 +5,7 @@ buildscript {
 }
 
 apply plugin: 'java'
+apply plugin: 'maven'
 apply plugin: 'osgi'
 apply plugin: 'idea'
 apply plugin: 'eclipse'
@@ -13,6 +14,8 @@ apply plugin: 'eclipse'
 //apply plugin: 'groovy'
 
 repositories {
+    mavenLocal()
+    jcenter()
     mavenCentral()
 }
 
@@ -20,12 +23,23 @@ sourceCompatibility = 1.7
 targetCompatibility = 1.7
 
 dependencies {
-  compile("org.quartz-scheduler:quartz:2.1.7")
-  compile("commons-codec:commons-codec:1.10")
+  compile('org.apache.servicemix.bundles:org.apache.servicemix.bundles.quartz:2.1.7_1') {
+    exclude group: 'c3p0', module: 'c3p0'
+    transitive = false
+  }
+  
+  compile("org.apache.commons:com.springsource.org.apache.commons.codec:1.4.0")
   compile("org.slf4j:slf4j-api:1.7.10")
-  compile("org.slf4j:slf4j-jdk14:1.7.10")
-	
-  compile fileTree(dir: 'jars', include: '*.jar') 
+
+  compile('com.orientechnologies:orientdb-core:2.1.6')	
+  compile('com.orientechnologies:orientdb-client:2.1.6')	
+  compile('com.orientechnologies:orientdb-server:2.1.6') {
+    exclude group: 'javax.mail', module: 'mail'
+    transitive = false
+  }	
+  compile('com.orientechnologies:orientdb-enterprise:2.1.6')
+
+  runtime("org.slf4j:slf4j-jdk14:1.7.10")
 
   //testCompile("joda-time:joda-time:2.8.2")
   //testCompile("org.slf4j:slf4j-simple:1.7.10")
