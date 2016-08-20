@@ -61,8 +61,8 @@ public class Test {
 
     scheduler.start();
 
-    // scheduleSimpleJob(scheduler, "simple1");
-    // scheduleCronJob(scheduler, "0 0/1 * * * ?", "cron");
+    scheduleSimpleJob(scheduler, "simple1");
+    scheduleCronJob(scheduler, "0 0/1 * * * ?", "cron");
   }
 
   private static void scheduleSimpleJob(Scheduler scheduler, String data)
