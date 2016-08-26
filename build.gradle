@@ -22,6 +22,9 @@ repositories {
 sourceCompatibility = 1.7
 targetCompatibility = 1.7
 
+group='smartspaces'
+version =  '1.0.0-alpha2-SNAPSHOT'
+
 dependencies {
   compile('org.apache.servicemix.bundles:org.apache.servicemix.bundles.quartz:2.1.7_1') {
     exclude group: 'c3p0', module: 'c3p0'
@@ -52,9 +55,6 @@ dependencies {
 artifacts {
   archives jar
 }
-
-group='smartspaces'
-version =  '1.0.0-alpha1-SNAPSHOT'
 
 jar {
   baseName = 'quartz-orientdb'
