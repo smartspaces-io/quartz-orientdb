@@ -6,6 +6,7 @@ import org.quartz.spi.OperableTrigger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.smartspaces.scheduling.quartz.orientdb.internal.Constants;
 import io.smartspaces.scheduling.quartz.orientdb.internal.LockManager;
 import io.smartspaces.scheduling.quartz.orientdb.internal.TriggerAndJobPersister;
 import io.smartspaces.scheduling.quartz.orientdb.internal.dao.StandardJobDao;
@@ -80,14 +81,14 @@ public class TriggerRecoverer {
             throws JobPersistenceException {
         log.info("Recovering trigger: {}", trigger.getKey());
         OperableTrigger recoveryTrigger = recoveryTriggerFactory.from(trigger);
-        persister.storeTrigger(recoveryTrigger, false);
+        persister.storeTrigger(recoveryTrigger, Constants.STATE_WAITING, false);
         return recoveryTrigger;
     }
 
     private void updateMisfires(OperableTrigger trigger) throws JobPersistenceException {
         if (misfireHandler.applyMisfireOnRecovery(trigger)) {
             log.info("Misfire applied. Replacing trigger: {}", trigger.getKey());
-            persister.storeTrigger(trigger, true);
+            persister.storeTrigger(trigger, Constants.STATE_WAITING, true);
         } else {
             //TODO should complete trigger?
             log.warn("Recovery misfire not applied for trigger: {}",

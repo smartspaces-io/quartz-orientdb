@@ -49,7 +49,7 @@ import io.smartspaces.scheduling.quartz.orientdb.internal.util.QueryHelper;
  */
 public class StandardTriggerDao {
 
-  private static final Logger log = LoggerFactory.getLogger(StandardTriggerDao.class);
+  private static final Logger LOG = LoggerFactory.getLogger(StandardTriggerDao.class);
 
   private final StandardOrientDbStoreAssembler storeAssembler;
 
@@ -98,24 +98,33 @@ public class StandardTriggerDao {
   /**
    * Get a list of all eligable triggers to run.
    * 
+   * @param state
+   *          the state triggers should be in
    * @param noLaterThanDate
-   *        the date to check for
-   *        
+   *          the latest date for triggers of interest
+   * @param noEarlierThanDate
+   *          the earliest date for triggers of interest
+   * 
    * @return the list of documents for eligable triggers
    */
-  public List<ODocument> findEligibleToRun(Date noLaterThanDate) {
+  public List<ODocument> findEligibleToRun(String state, Date noLaterThanDate,
+      Date noEarlierThanDate) {
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Looking for triggers in state {} no later than {}, no earlier than {}", state,
+          noLaterThanDate, noEarlierThanDate);
+    }
+    
     // TODO(keith): class and field names should come from external
     // constants
     // Also create query ahead of time when DAO starts.
-    //
-    // The query needs to include misfire instructions, see JDBCJobStore
     ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
     OSQLSynchQuery<ODocument> query = new OSQLSynchQuery<ODocument>(
-        "select from Trigger where (nextFireTime is null or nextFireTime <= ?) and state = 'waiting' order by nextFireTime asc, priority desc");
-    List<ODocument> result = database.command(query).execute(noLaterThanDate);
+        "select from Trigger where state = ? and nextFireTime <= ? and (misfireInstruction = -1 or (misfireInstruction <> -1 and nextFireTime >= ?)) order by nextFireTime asc, priority desc");
+    List<ODocument> result =
+        database.command(query).execute(state, noLaterThanDate, noEarlierThanDate);
 
-    if (log.isInfoEnabled()) {
-      log.info("Found {} triggers which are eligible to be run.", result.size());
+    if (LOG.isInfoEnabled()) {
+      LOG.info("Found {} triggers which are eligible to be run.", result.size());
     }
 
     return result;
@@ -221,8 +230,8 @@ public class StandardTriggerDao {
   }
 
   public int replace(TriggerKey triggerKey, ODocument triggerUpdate) {
-    if (log.isInfoEnabled()) {
-      log.info("Replacing trigger {} triggers with data {} at {}", triggerKey, triggerUpdate,
+    if (LOG.isInfoEnabled()) {
+      LOG.info("Replacing trigger {} triggers with data {} at {}", triggerKey, triggerUpdate,
           new Date());
     }
     int count = 0;
@@ -248,7 +257,7 @@ public class StandardTriggerDao {
     int count = 0;
     for (ODocument triggerDoc : getTriggerDocsByKey(triggerKey)) {
       triggerDoc.field(Constants.TRIGGER_STATE, state).save();
-      log.debug("Changed trigger {} state {}", triggerKey, triggerDoc);
+      LOG.debug("Changed trigger {} state {}", triggerKey, triggerDoc);
     }
 
     return count;

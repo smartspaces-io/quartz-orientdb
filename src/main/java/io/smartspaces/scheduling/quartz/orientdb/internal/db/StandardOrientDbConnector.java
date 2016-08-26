@@ -334,13 +334,13 @@ public class StandardOrientDbConnector {
         triggerClass.createProperty(Constants.TRIGGER_DESCRIPTION, OType.STRING);
         triggerClass.createProperty(Constants.TRIGGER_FIRE_INSTANCE_ID, OType.STRING);
         triggerClass.createProperty(Constants.TRIGGER_MISFIRE_INSTRUCTION, OType.INTEGER);
-        triggerClass.createProperty(Constants.TRIGGER_NEXT_FIRE_TIME, OType.DATE);
-        triggerClass.createProperty(Constants.TRIGGER_PREVIOUS_FIRE_TIME, OType.DATE);
+        triggerClass.createProperty(Constants.TRIGGER_NEXT_FIRE_TIME, OType.DATETIME);
+        triggerClass.createProperty(Constants.TRIGGER_PREVIOUS_FIRE_TIME, OType.DATETIME);
         triggerClass.createProperty(Constants.TRIGGER_PRIORITY, OType.INTEGER);
-        triggerClass.createProperty(Constants.TRIGGER_START_TIME, OType.DATE);
-        triggerClass.createProperty(Constants.TRIGGER_END_TIME, OType.DATE);
+        triggerClass.createProperty(Constants.TRIGGER_START_TIME, OType.DATETIME);
+        triggerClass.createProperty(Constants.TRIGGER_END_TIME, OType.DATETIME);
         triggerClass.createProperty(Constants.TRIGGER_STATE, OType.STRING);
-        triggerClass.createProperty(Constants.TRIGGER_FINAL_FIRE_TIME, OType.DATE);
+        triggerClass.createProperty(Constants.TRIGGER_FINAL_FIRE_TIME, OType.DATETIME);
         triggerClass.createProperty(Constants.TRIGGER_JOB_ID, OType.LINK, jobClass);
         triggerClass.createProperty(Constants.TRIGGER_CRON_EXPRESSION, OType.STRING);
         triggerClass.createProperty(Constants.TRIGGER_TIMEZONE, OType.STRING);

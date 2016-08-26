@@ -117,7 +117,7 @@ public class TriggerAndJobPersister {
     return false;
   }
 
-  public boolean replaceTrigger(TriggerKey triggerKey, OperableTrigger newTrigger)
+  public boolean replaceTrigger(TriggerKey triggerKey, OperableTrigger newTrigger, String state)
       throws JobPersistenceException {
     OperableTrigger oldTrigger = triggerDao.getTrigger(triggerKey);
     if (oldTrigger == null) {
@@ -131,7 +131,7 @@ public class TriggerAndJobPersister {
 
     removeOldTrigger(triggerKey);
     copyOldJobDataMap(newTrigger, oldTrigger);
-    completeReplaceWithNewTrigger(newTrigger, oldTrigger);
+    completeReplaceWithNewTrigger(newTrigger, oldTrigger, state);
 
     return true;
   }
@@ -147,15 +147,15 @@ public class TriggerAndJobPersister {
       String state, boolean forceState, boolean recovering)
       throws ObjectAlreadyExistsException, JobPersistenceException {
     ODocument existingTriggerDoc = triggerDao.findTrigger(newTrigger.getKey());
-    
+
     if (existingTriggerDoc != null && !replaceExisting) {
       throw new ObjectAlreadyExistsException(newTrigger);
     }
-    
+
     storeTrigger(newTrigger, job.getKey(), state, replaceExisting);
   }
 
-  public void storeTrigger(OperableTrigger newTrigger, boolean replaceExisting)
+  public void storeTrigger(OperableTrigger newTrigger, String state, boolean replaceExisting)
       throws JobPersistenceException {
     JobKey jobKey = newTrigger.getJobKey();
     if (jobKey == null) {
@@ -163,11 +163,11 @@ public class TriggerAndJobPersister {
           "Trigger must be associated with a job. Please specify a JobKey.");
     }
 
-    storeTrigger(newTrigger, jobKey, Constants.STATE_WAITING, replaceExisting);
+    storeTrigger(newTrigger, jobKey, state, replaceExisting);
   }
 
-  private void storeTrigger(OperableTrigger newTrigger, JobKey jobKey, String state, boolean replaceExisting)
-      throws JobPersistenceException {
+  private void storeTrigger(OperableTrigger newTrigger, JobKey jobKey, String state,
+      boolean replaceExisting) throws JobPersistenceException {
     ODocument jobDoc = jobDao.getJob(jobKey);
     if (jobDoc != null) {
       storeTrigger(newTrigger, jobDoc.getIdentity(), state, replaceExisting);
@@ -218,22 +218,25 @@ public class TriggerAndJobPersister {
    *          the trigger to save
    * @param oldTrigger
    *          the trigger to rollback to
+   * @param state
+   *          the state to set the trigger to
    * 
    * @throws JobPersistenceException
    */
-  private void completeReplaceWithNewTrigger(OperableTrigger newTrigger, OperableTrigger oldTrigger)
-      throws JobPersistenceException {
+  private void completeReplaceWithNewTrigger(OperableTrigger newTrigger, OperableTrigger oldTrigger,
+      String state) throws JobPersistenceException {
     try {
-      storeTrigger(newTrigger, false);
+      storeTrigger(newTrigger, state, false);
     } catch (JobPersistenceException jpe) {
-      storeTrigger(oldTrigger, false);
+      storeTrigger(oldTrigger, state, false);
       throw jpe;
     }
   }
 
-  private void storeTrigger(OperableTrigger trigger, ORID jobId, String state, boolean replaceExisting)
-      throws JobPersistenceException {
+  private void storeTrigger(OperableTrigger trigger, ORID jobId, String state,
+      boolean replaceExisting) throws JobPersistenceException {
     ODocument triggerDoc = triggerConverter.toDocument(trigger, jobId, state);
+    log.debug("Storing trigger doc {}", triggerDoc);
     if (replaceExisting) {
       triggerDao.replace(trigger.getKey(), triggerDoc);
     } else {

@@ -34,7 +34,8 @@ public class MisfireHandler {
    *
    * @param trigger
    *          on which apply misfire logic
-   * @return true when result of misfire is next fire time
+   *          
+   * @return {@code true} when result of misfire is next fire time
    */
   public boolean applyMisfireOnRecovery(OperableTrigger trigger) throws JobPersistenceException {
     if (trigger.getMisfireInstruction() == Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY) {
@@ -73,7 +74,7 @@ public class MisfireHandler {
     return true;
   }
 
-  private long calculateMisfireTime() {
+  public long getMisfireTime() {
     long misfireTime = clock.millis();
     if (misfireThreshold > 0) {
       misfireTime -= misfireThreshold;
@@ -87,7 +88,7 @@ public class MisfireHandler {
   }
 
   private boolean isNotMisfired(Date fireTime) {
-    return calculateMisfireTime() < fireTime.getTime();
+    return getMisfireTime() < fireTime.getTime();
   }
 
   private Calendar retrieveCalendar(OperableTrigger trigger) throws JobPersistenceException {

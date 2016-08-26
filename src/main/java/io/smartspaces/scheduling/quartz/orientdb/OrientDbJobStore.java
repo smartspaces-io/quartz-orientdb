@@ -27,6 +27,7 @@
 
 package io.smartspaces.scheduling.quartz.orientdb;
 
+import io.smartspaces.scheduling.quartz.orientdb.internal.Constants;
 import io.smartspaces.scheduling.quartz.orientdb.internal.StandardOrientDbStoreAssembler;
 import io.smartspaces.scheduling.quartz.orientdb.internal.cluster.CheckinExecutor;
 import io.smartspaces.scheduling.quartz.orientdb.internal.db.StandardOrientDbConnector;
@@ -76,9 +77,13 @@ public class OrientDbJobStore implements JobStore {
   private String orientDbUri;
   private String username = "sooperdooper";
   private String password = "sooperdooper";
-  long misfireThreshold = 5000;
-  long triggerTimeoutMillis = 10 * 60 * 1000L;
-  long jobTimeoutMillis = 10 * 60 * 1000L;
+
+  /**
+   * The threshold for detecting misfires.
+   */
+  private long misfireThreshold = 60000;
+  private long triggerTimeoutMillis = 10 * 60 * 1000L;
+  private long jobTimeoutMillis = 10 * 60 * 1000L;
 
   /**
    * The assembler for the job store.
@@ -274,7 +279,8 @@ public class OrientDbJobStore implements JobStore {
         new TransactionMethod<Void>() {
           @Override
           public Void doInTransaction() throws JobPersistenceException {
-            assembler.getPersister().storeTrigger(newTrigger, replaceExisting);
+            assembler.getPersister().storeTrigger(newTrigger, Constants.STATE_WAITING,
+                replaceExisting);
 
             return null;
           }
@@ -313,7 +319,8 @@ public class OrientDbJobStore implements JobStore {
         .doInTransaction(LOCK_TRIGGER, new TransactionMethod<Boolean>() {
           @Override
           public Boolean doInTransaction() throws JobPersistenceException {
-            return assembler.getPersister().replaceTrigger(triggerKey, newTrigger);
+            return assembler.getPersister().replaceTrigger(triggerKey, newTrigger,
+                Constants.STATE_WAITING);
           }
         }).booleanValue();
   }

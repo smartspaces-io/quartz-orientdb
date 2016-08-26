@@ -112,7 +112,8 @@ public class TriggerRunner {
 
     // Might want to put this in a loop like the JDBCStore to make sure we get
     // as many triggers as possible.
-    for (ODocument triggerDoc : triggerDao.findEligibleToRun(noLaterThanDate)) {
+    for (ODocument triggerDoc : triggerDao.findEligibleToRun(Constants.STATE_WAITING,
+        noLaterThanDate, new Date(misfireHandler.getMisfireTime()))) {
       if (maxCount <= triggers.size()) {
         break;
       }
@@ -254,7 +255,7 @@ public class TriggerRunner {
     // triggerDao.setState(triggerKey, Constants.STATE_EXECUTING);
 
     Date prevFireTime = trigger.getPreviousFireTime();
-    
+
     // This updates the next fire time for the trigger.
     trigger.triggered(cal);
 
@@ -285,7 +286,7 @@ public class TriggerRunner {
   private boolean notAcquirableAfterMisfire(Date noLaterThanDate, OperableTrigger trigger)
       throws JobPersistenceException {
     if (misfireHandler.applyMisfire(trigger)) {
-      persister.storeTrigger(trigger, true);
+      persister.storeTrigger(trigger, Constants.STATE_WAITING, true);
 
       LOG.debug("Misfire trigger {}.", trigger.getKey());
 
