@@ -18,8 +18,6 @@
 
 package io.smartspaces.scheduling.quartz.orientdb.internal.dao;
 
-import static io.smartspaces.scheduling.quartz.orientdb.internal.util.Keys.createJobLock;
-import static io.smartspaces.scheduling.quartz.orientdb.internal.util.Keys.createTriggerLock;
 import static io.smartspaces.scheduling.quartz.orientdb.internal.util.Keys.toTriggerKey;
 
 import java.util.Date;
@@ -68,7 +66,7 @@ public class StandardLockDao {
    * @return the lock, or {@code null} if no such lock available
    */
   public ODocument findJobLock(JobKey jobKey) {
-    List<ODocument> filter = createLockFilter(LockType.job, jobKey);
+    List<ODocument> filter = getLockDocuments(LockType.job, jobKey);
 
     if (!filter.isEmpty()) {
       return filter.get(0);
@@ -98,7 +96,7 @@ public class StandardLockDao {
    * @return the lock, or {@code null} if no such lock available
    */
   public ODocument findTriggerLock(TriggerKey triggerKey) {
-    List<ODocument> filter = createLockFilter(LockType.trigger, triggerKey);
+    List<ODocument> filter = getLockDocuments(LockType.trigger, triggerKey);
 
     if (!filter.isEmpty()) {
       return filter.get(0);
@@ -146,14 +144,15 @@ public class StandardLockDao {
 
   public void lockJob(JobDetail job) {
     log.debug("Inserting lock for job {}", job.getKey());
-    ODocument lock = createJobLock(job.getKey(), instanceId, clock.now());
+    ODocument lock = createJobLockDocument(job.getKey(), instanceId, clock.now());
     lock.save();
   }
 
   public void lockTrigger(TriggerKey key) {
     log.debug("Inserting lock for trigger {}", key);
-    ODocument lock = createTriggerLock(key, instanceId, clock.now());
-    lock.save();
+    ODocument lockDoc = createTriggerLockDocument(key, instanceId, clock.now());
+    log.debug("Inserting LockDoc for trigger {}", lockDoc);
+    lockDoc.save();
   }
 
   /**
@@ -173,6 +172,7 @@ public class StandardLockDao {
    * @return {@code false} when not found or caught an exception
    */
   public boolean relock(TriggerKey key, Date lockTime) {
+    log.info("Relocking lock {} to {}", key, lockTime);
     try {
       // TODO(keith): class and field names should come from external
       // constants
@@ -185,6 +185,7 @@ public class StandardLockDao {
 
       if (!result.isEmpty()) {
         ODocument lockDoc = result.get(0);
+        log.info("Relocked lock {} to {}", lockDoc, lockTime);
         lockDoc.field(Constants.LOCK_TIME, clock.now());
         lockDoc.save();
       }
@@ -240,9 +241,11 @@ public class StandardLockDao {
    *          to unlock
    */
   public void unlockTrigger(OperableTrigger trigger) {
-    List<ODocument> locks = createLockFilter(LockType.trigger, trigger.getKey());
-    for (ODocument lock : locks) {
-      lock.delete();
+    log.debug("Removing lock for trigger {}", trigger.getKey());
+    List<ODocument> lockDocs = getLockDocuments(LockType.trigger, trigger.getKey());
+    for (ODocument lockDoc : lockDocs) {
+      log.debug("Deleting lock {}.", lockDoc);
+      lockDoc.delete();
     }
     log.debug("Trigger lock {}.{} removed.", trigger.getKey(), instanceId);
   }
@@ -250,9 +253,9 @@ public class StandardLockDao {
   public void unlockJob(JobDetail job) {
     log.debug("Removing lock for job {}", job.getKey());
 
-    List<ODocument> locks = createLockFilter(LockType.job, job.getKey());
-    for (ODocument lock : locks) {
-      lock.delete();
+    List<ODocument> jobLockDocs = getLockDocuments(LockType.job, job.getKey());
+    for (ODocument jobLockDoc : jobLockDocs) {
+      jobLockDoc.delete();
     }
   }
 
@@ -267,18 +270,27 @@ public class StandardLockDao {
     // TODO(keith): class and field names should come from external
     // constants
     // Also create query ahead of time when DAO starts.
-    OSQLSynchQuery<ODocument> query = new OSQLSynchQuery<ODocument>(
-        "select from QuartzLock where instanceId=?");
+    OSQLSynchQuery<ODocument> query =
+        new OSQLSynchQuery<ODocument>("select from QuartzLock where instanceId=?");
     ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
-    List<ODocument> result =
-        database.command(query).execute(instanceId);
+    List<ODocument> result = database.command(query).execute(instanceId);
 
     for (ODocument lock : result) {
       lock.delete();
     }
   }
 
-  private List<ODocument> createLockFilter(LockType lockType, Key<?> key) {
+  /**
+   * Get the locks for a give lock type and lock key.
+   * 
+   * @param lockType
+   *          the lock type
+   * @param key
+   *          the lock key
+   * 
+   * @return the list of all lock documents matching the search criteria
+   */
+  private List<ODocument> getLockDocuments(LockType lockType, Key<?> key) {
     // TODO(keith): class and field names should come from external
     // constants
     // Also create query ahead of time when DAO starts.
@@ -290,4 +302,26 @@ public class StandardLockDao {
 
     return result;
   }
+
+  public ODocument createJobLockDocument(JobKey jobKey, String instanceId, Date lockTime) {
+    return createLockDocument(LockType.job, instanceId, jobKey, lockTime);
+  }
+
+  public ODocument createTriggerLockDocument(TriggerKey triggerKey, String instanceId,
+      Date lockTime) {
+    return createLockDocument(LockType.trigger, instanceId, triggerKey, lockTime);
+  }
+
+  private ODocument createLockDocument(LockType type, String instanceId, Key<?> key, Date lockTime) {
+    ODocument lockDoc = new ODocument("QuartzLock");
+    lockDoc.field(Constants.LOCK_TYPE, type.name());
+    lockDoc.field(Constants.KEY_GROUP, key.getGroup());
+    lockDoc.field(Constants.KEY_NAME, key.getName());
+    lockDoc.field(Constants.LOCK_INSTANCE_ID, instanceId);
+    lockDoc.field(Constants.LOCK_TIME, lockTime);
+    
+    log.info("Created lock document {}", lockDoc);
+    return lockDoc;
+  }
+
 }

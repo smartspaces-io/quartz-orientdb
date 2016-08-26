@@ -31,30 +31,11 @@ import io.smartspaces.scheduling.quartz.orientdb.internal.Constants.LockType;
 
 public class Keys {
 
-  public static ODocument createJobLock(JobKey jobKey, String instanceId, Date lockTime) {
-    return createLock(LockType.job, instanceId, jobKey, lockTime);
-  }
-
-  public static ODocument createTriggerLock(TriggerKey triggerKey, String instanceId,
-      Date lockTime) {
-    return createLock(LockType.trigger, instanceId, triggerKey, lockTime);
-  }
-
   public static JobKey toJobKey(ODocument dbo) {
     return new JobKey((String) dbo.field(Constants.KEY_NAME), (String) dbo.field(Constants.KEY_GROUP));
   }
 
   public static TriggerKey toTriggerKey(ODocument dbo) {
     return new TriggerKey((String)dbo.field(Constants.KEY_NAME), (String)dbo.field(Constants.KEY_GROUP));
-  }
-
-  private static ODocument createLock(LockType type, String instanceId, Key<?> key, Date lockTime) {
-    ODocument lock = new ODocument("QuartzLock");
-    lock.field(Constants.LOCK_TYPE, type.name());
-    lock.field(Constants.KEY_GROUP, key.getGroup());
-    lock.field(Constants.KEY_NAME, key.getName());
-    lock.field(Constants.LOCK_INSTANCE_ID, instanceId);
-    lock.field(Constants.LOCK_TIME, lockTime);
-    return lock;
   }
 }

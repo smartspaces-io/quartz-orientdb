@@ -18,6 +18,11 @@
 
 package io.smartspaces.scheduling.quartz.orientdb.internal;
 
+import io.smartspaces.scheduling.quartz.orientdb.internal.dao.StandardJobDao;
+import io.smartspaces.scheduling.quartz.orientdb.internal.dao.StandardLockDao;
+import io.smartspaces.scheduling.quartz.orientdb.internal.dao.StandardTriggerDao;
+
+import com.orientechnologies.orient.core.record.impl.ODocument;
 import org.quartz.JobDetail;
 import org.quartz.JobPersistenceException;
 import org.quartz.Trigger.CompletedExecutionInstruction;
@@ -26,60 +31,48 @@ import org.quartz.spi.SchedulerSignaler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.smartspaces.scheduling.quartz.orientdb.internal.dao.StandardJobDao;
-import io.smartspaces.scheduling.quartz.orientdb.internal.dao.StandardLockDao;
-import io.smartspaces.scheduling.quartz.orientdb.internal.dao.StandardTriggerDao;
-
 //TODO Think of some better name for doing work after a job has completed :-)
 public class JobCompleteHandler {
 
-  private static final Logger log = LoggerFactory.getLogger(JobCompleteHandler.class);
+  private static final Logger LOG = LoggerFactory.getLogger(JobCompleteHandler.class);
 
   private final TriggerAndJobPersister persister;
   private final SchedulerSignaler signaler;
   private final StandardJobDao jobDao;
-  private final StandardLockDao locksDao;
   private StandardTriggerDao triggerDao;
 
   public JobCompleteHandler(TriggerAndJobPersister persister, SchedulerSignaler signaler,
-      StandardJobDao jobDao, StandardLockDao locksDao, StandardTriggerDao triggerDao) {
+      StandardJobDao jobDao, StandardTriggerDao triggerDao) {
     this.persister = persister;
     this.signaler = signaler;
     this.jobDao = jobDao;
-    this.locksDao = locksDao;
     this.triggerDao = triggerDao;
   }
 
   public void jobComplete(OperableTrigger trigger, JobDetail job,
       CompletedExecutionInstruction executionInstruction) throws JobPersistenceException {
-    log.debug("Trigger completed {}", trigger.getKey());
+    LOG.debug("Trigger completed {}", trigger.getKey());
 
     if (job.isPersistJobDataAfterExecution()) {
       if (job.getJobDataMap().isDirty()) {
-        log.debug("Job data map dirty, will store {}", job.getKey());
+        LOG.debug("Job data map dirty, will store {}", job.getKey());
         jobDao.storeJob(job, true);
       }
     }
 
     if (job.isConcurrentExectionDisallowed()) {
-      locksDao.unlockJob(job);
+      // TODO(keith): Need to change state on other jobs. See JDBCJobStore
     }
 
-    process(trigger, executionInstruction);
-
-    locksDao.unlockTrigger(trigger);
+    processCompletedTrigger(trigger, executionInstruction);
   }
 
-  private boolean isTriggerDeletionRequested(CompletedExecutionInstruction triggerInstCode) {
-    return triggerInstCode == CompletedExecutionInstruction.DELETE_TRIGGER;
-  }
-
-  private void process(OperableTrigger trigger, CompletedExecutionInstruction executionInstruction)
-      throws JobPersistenceException {
+  private void processCompletedTrigger(OperableTrigger trigger,
+      CompletedExecutionInstruction executionInstruction) throws JobPersistenceException {
     // check for trigger deleted during execution...
     OperableTrigger dbTrigger = triggerDao.getTrigger(trigger.getKey());
     if (dbTrigger != null) {
-      if (isTriggerDeletionRequested(executionInstruction)) {
+      if (executionInstruction == CompletedExecutionInstruction.DELETE_TRIGGER) {
         if (trigger.getNextFireTime() == null) {
           // double check for possible reschedule within job
           // execution, which would cancel the need to delete...
@@ -91,18 +84,25 @@ public class JobCompleteHandler {
           signaler.signalSchedulingChange(0L);
         }
       } else if (executionInstruction == CompletedExecutionInstruction.SET_TRIGGER_COMPLETE) {
-        // TODO: need to store state
+        triggerDao.setState(trigger.getKey(), Constants.STATE_COMPLETE);
         signaler.signalSchedulingChange(0L);
       } else if (executionInstruction == CompletedExecutionInstruction.SET_TRIGGER_ERROR) {
-        // TODO: need to store state
+        triggerDao.setState(trigger.getKey(), Constants.STATE_ERROR);
         signaler.signalSchedulingChange(0L);
       } else if (executionInstruction == CompletedExecutionInstruction.SET_ALL_JOB_TRIGGERS_ERROR) {
-        // TODO: need to store state
+        // TODO: Nasty leak, need a manager that understands aspects of DB that
+        // hides this.
+        ODocument jobDoc = jobDao.getJob(trigger.getJobKey());
+        triggerDao.setStateByJobId(jobDoc.getIdentity(), Constants.STATE_ERROR);
         signaler.signalSchedulingChange(0L);
       } else if (executionInstruction == CompletedExecutionInstruction.SET_ALL_JOB_TRIGGERS_COMPLETE) {
-        // TODO: need to store state
+        // TODO: Nasty leak, need a manager that understands aspects of DB that
+        // hides this.
+        ODocument jobDoc = jobDao.getJob(trigger.getJobKey());
+        triggerDao.setStateByJobId(jobDoc.getIdentity(), Constants.STATE_COMPLETE);
         signaler.signalSchedulingChange(0L);
       }
     }
+    
   }
 }

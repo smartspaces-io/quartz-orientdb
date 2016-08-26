@@ -18,16 +18,18 @@
 
 package io.smartspaces.scheduling.quartz.orientdb.internal;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import io.smartspaces.scheduling.quartz.orientdb.internal.cluster.TriggerRecoverer;
+import io.smartspaces.scheduling.quartz.orientdb.internal.dao.StandardCalendarDao;
+import io.smartspaces.scheduling.quartz.orientdb.internal.dao.StandardJobDao;
+import io.smartspaces.scheduling.quartz.orientdb.internal.dao.StandardTriggerDao;
+import io.smartspaces.scheduling.quartz.orientdb.internal.trigger.MisfireHandler;
+import io.smartspaces.scheduling.quartz.orientdb.internal.trigger.TriggerConverter;
+import io.smartspaces.scheduling.quartz.orientdb.internal.util.Clock;
 
+import com.orientechnologies.orient.core.record.impl.ODocument;
 import org.quartz.Calendar;
 import org.quartz.JobDetail;
+import org.quartz.JobKey;
 import org.quartz.JobPersistenceException;
 import org.quartz.Scheduler;
 import org.quartz.TriggerKey;
@@ -37,19 +39,22 @@ import org.quartz.spi.TriggerFiredResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.orientechnologies.orient.core.record.impl.ODocument;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
-import io.smartspaces.scheduling.quartz.orientdb.internal.cluster.TriggerRecoverer;
-import io.smartspaces.scheduling.quartz.orientdb.internal.dao.StandardCalendarDao;
-import io.smartspaces.scheduling.quartz.orientdb.internal.dao.StandardJobDao;
-import io.smartspaces.scheduling.quartz.orientdb.internal.dao.StandardLockDao;
-import io.smartspaces.scheduling.quartz.orientdb.internal.dao.StandardTriggerDao;
-import io.smartspaces.scheduling.quartz.orientdb.internal.trigger.MisfireHandler;
-import io.smartspaces.scheduling.quartz.orientdb.internal.trigger.TriggerConverter;
-
+/**
+ * The manager for triggers that have triggered.
+ */
 public class TriggerRunner {
 
-  private static final Logger log = LoggerFactory.getLogger(TriggerRunner.class);
+  private static final Logger LOG = LoggerFactory.getLogger(TriggerRunner.class);
 
   private static final Comparator<OperableTrigger> NEXT_FIRE_TIME_COMPARATOR =
       new Comparator<OperableTrigger>() {
@@ -63,32 +68,29 @@ public class TriggerRunner {
   private TriggerAndJobPersister persister;
   private StandardTriggerDao triggerDao;
   private TriggerConverter triggerConverter;
-  private LockManager lockManager;
   private TriggerRecoverer recoverer;
   private StandardJobDao jobDao;
-  private StandardLockDao locksDao;
   private StandardCalendarDao calendarDao;
+  private Clock clock;
 
   public TriggerRunner(TriggerAndJobPersister persister, StandardTriggerDao triggerDao,
-      StandardJobDao jobDao, StandardLockDao locksDao, StandardCalendarDao calendarDao,
-      MisfireHandler misfireHandler, TriggerConverter triggerConverter, LockManager lockManager,
-      TriggerRecoverer recoverer) {
+      StandardJobDao jobDao, StandardCalendarDao calendarDao, MisfireHandler misfireHandler,
+      TriggerConverter triggerConverter, TriggerRecoverer recoverer, Clock clock) {
     this.persister = persister;
     this.triggerDao = triggerDao;
     this.jobDao = jobDao;
-    this.locksDao = locksDao;
     this.calendarDao = calendarDao;
     this.misfireHandler = misfireHandler;
     this.triggerConverter = triggerConverter;
-    this.lockManager = lockManager;
     this.recoverer = recoverer;
+    this.clock = clock;
   }
 
   public List<OperableTrigger> acquireNext(long noLaterThan, int maxCount, long timeWindow)
       throws JobPersistenceException {
     Date noLaterThanDate = new Date(noLaterThan + timeWindow);
 
-    log.debug("Finding up to {} triggers which have time less than {}", maxCount, noLaterThanDate);
+    LOG.debug("Finding up to {} triggers which have time less than {}", maxCount, noLaterThanDate);
 
     List<OperableTrigger> triggers = acquireNextTriggers(noLaterThanDate, maxCount);
 
@@ -102,38 +104,16 @@ public class TriggerRunner {
     return triggers;
   }
 
-  public List<TriggerFiredResult> triggersFired(List<OperableTrigger> triggers)
-      throws JobPersistenceException {
-    List<TriggerFiredResult> results = new ArrayList<TriggerFiredResult>(triggers.size());
-
-    for (OperableTrigger trigger : triggers) {
-      log.info("Fired trigger {}", trigger.getKey());
-
-      TriggerFiredBundle bundle = createTriggerFiredBundle(trigger);
-
-      if (hasJobDetail(bundle)) {
-        JobDetail job = bundle.getJobDetail();
-        try {
-          lockManager.lockJob(job);
-          results.add(new TriggerFiredResult(bundle));
-          persister.storeTrigger(trigger, true);
-        } catch (Exception dk) {
-          log.debug("Job disallows concurrent execution and is already running {}", job.getKey());
-          locksDao.unlockTrigger(trigger);
-          lockManager.unlockExpired(job);
-        }
-      }
-
-    }
-    return results;
-  }
-
   private List<OperableTrigger> acquireNextTriggers(Date noLaterThanDate, int maxCount)
       throws JobPersistenceException {
-    Map<TriggerKey, OperableTrigger> triggers = new HashMap<>();
+    Map<TriggerKey, OperableTrigger> triggers = new LinkedHashMap<>();
 
+    Set<JobKey> acquiredJobKeysForNoConcurrentExec = new HashSet<JobKey>();
+
+    // Might want to put this in a loop like the JDBCStore to make sure we get
+    // as many triggers as possible.
     for (ODocument triggerDoc : triggerDao.findEligibleToRun(noLaterThanDate)) {
-      if (acquiredEnough(triggers, maxCount)) {
+      if (maxCount <= triggers.size()) {
         break;
       }
 
@@ -143,23 +123,49 @@ public class TriggerRunner {
         continue;
       }
 
-      TriggerKey key = trigger.getKey();
-      if (lockManager.tryTriggerLock(key)) {
-        if (prepareForFire(noLaterThanDate, trigger)) {
-          log.info("Acquired trigger: {}", trigger.getKey());
-          triggers.put(trigger.getKey(), trigger);
-        } else {
-          lockManager.unlockAcquiredTrigger(trigger);
+      TriggerKey triggerKey = trigger.getKey();
+
+      JobKey jobKey = trigger.getJobKey();
+      JobDetail jobDetail = null;
+      try {
+        jobDetail = jobDao.retrieveJob(jobKey);
+      } catch (Exception e) {
+        LOG.error("Error retrieving job {}", jobKey, e);
+
+        try {
+          triggerDao.setState(triggerKey, Constants.STATE_ERROR);
+        } catch (Exception e2) {
+          LOG.error("Could not set trigger {} to error state", triggerKey, e2);
         }
-      } else if (lockManager.relockExpired(key)) {
-        log.info("Recovering trigger: {}", trigger.getKey());
-        OperableTrigger recoveryTrigger = recoverer.doRecovery(trigger);
-        lockManager.unlockAcquiredTrigger(trigger);
-        if (recoveryTrigger != null && lockManager.tryTriggerLock(recoveryTrigger.getKey())) {
-          log.info("Acquired trigger: {}", recoveryTrigger.getKey());
-          triggers.put(recoveryTrigger.getKey(), recoveryTrigger);
+        continue;
+      }
+
+      // If can't run more than once, make sure only ends up in list once
+      if (jobDetail.isConcurrentExectionDisallowed()) {
+        // If shows up again, we don't want to add it into the list of triggers.
+        if (acquiredJobKeysForNoConcurrentExec.add(jobKey)) {
+          continue;
         }
       }
+
+      if (prepareForFire(noLaterThanDate, trigger)) {
+        LOG.info("Prepared acquired trigger: {}", triggerKey);
+        triggerDao.setState(triggerKey, Constants.STATE_ACQUIRED);
+        triggers.put(triggerKey, trigger);
+      } else {
+        LOG.info("Unable to prepare acquired trigger, unlocking: {}", triggerKey);
+      }
+      // TODO(keith): Sort out this recovery stuff
+      // } else if (lockManager.relockExpired(triggerKey)) {
+      // log.info("Recovering trigger: {}", trigger.getKey());
+      // OperableTrigger recoveryTrigger = recoverer.doRecovery(trigger);
+      // lockManager.unlockAcquiredTrigger(trigger);
+      // if (recoveryTrigger != null &&
+      // lockManager.tryTriggerLock(recoveryTrigger.getKey())) {
+      // log.info("Acquired trigger: {}", recoveryTrigger.getKey());
+      // triggers.put(recoveryTrigger.getKey(), recoveryTrigger);
+      // }
+      // }
     }
 
     return new ArrayList<OperableTrigger>(triggers.values());
@@ -178,10 +184,6 @@ public class TriggerRunner {
     return true;
   }
 
-  private boolean acquiredEnough(Map<TriggerKey, OperableTrigger> triggers, int maxCount) {
-    return maxCount <= triggers.size();
-  }
-
   private boolean cannotAcquire(Map<TriggerKey, OperableTrigger> triggers,
       OperableTrigger trigger) {
     if (trigger == null) {
@@ -189,36 +191,95 @@ public class TriggerRunner {
     }
 
     if (triggers.containsKey(trigger.getKey())) {
-      log.debug("Skipping trigger {} as we have already acquired it.", trigger.getKey());
+      LOG.debug("Skipping trigger {} as we have already acquired it.", trigger.getKey());
       return true;
     }
     return false;
   }
 
+  public List<TriggerFiredResult> triggersFired(List<OperableTrigger> triggers)
+      throws JobPersistenceException {
+    List<TriggerFiredResult> results = new ArrayList<TriggerFiredResult>(triggers.size());
+
+    for (OperableTrigger trigger : triggers) {
+      LOG.info("Fired trigger {}", trigger);
+
+      TriggerFiredResult result = null;
+
+      try {
+        TriggerFiredBundle bundle = createTriggerFiredBundle(trigger);
+        result = new TriggerFiredResult(bundle);
+      } catch (Exception dk) {
+        result = new TriggerFiredResult(dk);
+      }
+
+      results.add(result);
+
+    }
+    return results;
+  }
+
   private TriggerFiredBundle createTriggerFiredBundle(OperableTrigger trigger)
       throws JobPersistenceException {
-    Calendar cal = calendarDao.retrieveCalendar(trigger.getCalendarName());
-    if (expectedCalendarButNotFound(trigger, cal)) {
+    TriggerKey triggerKey = trigger.getKey();
+    String triggerState = triggerDao.getState(triggerKey);
+    if (!triggerState.equals(Constants.STATE_ACQUIRED)) {
       return null;
     }
 
+    JobDetail job;
+    try {
+      job = jobDao.retrieveJob(trigger.getJobKey());
+      if (job == null) {
+        return null;
+      }
+    } catch (JobPersistenceException e) {
+      LOG.error("Error retrieving job, setting trigger state to error", e);
+
+      triggerDao.setState(triggerKey, Constants.STATE_ERROR);
+
+      throw e;
+    }
+
+    Calendar cal = null;
+    String calName = trigger.getCalendarName();
+    if (calName != null) {
+      cal = calendarDao.retrieveCalendar(calName);
+      if (cal == null) {
+        return null;
+      }
+    }
+
+    // TODO(keith): Probably need a fired trigger table
+    // triggerDao.setState(triggerKey, Constants.STATE_EXECUTING);
+
     Date prevFireTime = trigger.getPreviousFireTime();
+    
+    // This updates the next fire time for the trigger.
     trigger.triggered(cal);
 
-    return new TriggerFiredBundle(retrieveJob(trigger), trigger, cal, isRecovering(trigger),
-        new Date(), trigger.getPreviousFireTime(), prevFireTime, trigger.getNextFireTime());
-  }
+    String state = Constants.STATE_WAITING;
+    boolean force = true;
 
-  private boolean expectedCalendarButNotFound(OperableTrigger trigger, Calendar cal) {
-    return trigger.getCalendarName() != null && cal == null;
+    // TODO: Need code to block all other triggers who might run the job if it
+    // doesn't allow concurrent execution.
+
+    if (trigger.getNextFireTime() == null) {
+      state = Constants.STATE_COMPLETE;
+      force = true;
+    }
+
+    LOG.debug("Triggers fired has set trigger to {}", trigger);
+    persister.storeTrigger(trigger, job, true, state, force, false);
+
+    job.getJobDataMap().clearDirtyFlag();
+
+    return new TriggerFiredBundle(job, trigger, cal, isRecovering(trigger), clock.now(),
+        trigger.getPreviousFireTime(), prevFireTime, trigger.getNextFireTime());
   }
 
   private boolean isRecovering(OperableTrigger trigger) {
     return trigger.getKey().getGroup().equals(Scheduler.DEFAULT_RECOVERY_GROUP);
-  }
-
-  private boolean hasJobDetail(TriggerFiredBundle bundle) {
-    return (bundle != null) && (bundle.getJobDetail() != null);
   }
 
   private boolean notAcquirableAfterMisfire(Date noLaterThanDate, OperableTrigger trigger)
@@ -226,7 +287,7 @@ public class TriggerRunner {
     if (misfireHandler.applyMisfire(trigger)) {
       persister.storeTrigger(trigger, true);
 
-      log.debug("Misfire trigger {}.", trigger.getKey());
+      LOG.debug("Misfire trigger {}.", trigger.getKey());
 
       if (persister.removeTriggerWithoutNextFireTime(trigger)) {
         return true;
@@ -238,20 +299,11 @@ public class TriggerRunner {
       // <code>sigLock.wait(timeUntilTrigger);</code>
       // so, check again that the trigger is due to fire
       if (trigger.getNextFireTime().after(noLaterThanDate)) {
-        log.debug("Skipping trigger {} as it misfired and was scheduled for {}.", trigger.getKey(),
+        LOG.debug("Skipping trigger {} as it misfired and was scheduled for {}.", trigger.getKey(),
             trigger.getNextFireTime());
         return true;
       }
     }
     return false;
-  }
-
-  private JobDetail retrieveJob(OperableTrigger trigger) throws JobPersistenceException {
-    try {
-      return jobDao.retrieveJob(trigger.getJobKey());
-    } catch (JobPersistenceException e) {
-      locksDao.unlockTrigger(trigger);
-      throw e;
-    }
   }
 }

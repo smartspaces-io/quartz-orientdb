@@ -18,8 +18,10 @@
 
 package io.smartspaces.scheduling.quartz.orientdb.internal.db;
 
-import org.quartz.JobPersistenceException;
-import org.quartz.SchedulerConfigException;
+import io.smartspaces.scheduling.quartz.orientdb.internal.Constants;
+import io.smartspaces.scheduling.quartz.orientdb.internal.LockException;
+import io.smartspaces.scheduling.quartz.orientdb.internal.LockProvider;
+import io.smartspaces.scheduling.quartz.orientdb.internal.SimpleLockProvider;
 
 import com.orientechnologies.orient.core.db.OPartitionedDatabasePool;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
@@ -28,8 +30,11 @@ import com.orientechnologies.orient.core.metadata.schema.OSchema;
 import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.metadata.security.OSecurity;
 import com.orientechnologies.orient.core.metadata.security.OUser;
-
-import io.smartspaces.scheduling.quartz.orientdb.internal.Constants;
+import com.orientechnologies.orient.core.tx.OTransaction;
+import org.quartz.JobPersistenceException;
+import org.quartz.SchedulerConfigException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The responsibility of this class is create an OrientDB connection with given
@@ -40,6 +45,8 @@ public class StandardOrientDbConnector {
   public static OrientDbConnectorBuilder builder() {
     return new OrientDbConnectorBuilder();
   }
+
+  private static final Logger log = LoggerFactory.getLogger(StandardOrientDbConnector.class);
 
   /**
    * The pool of database connections.
@@ -56,6 +63,8 @@ public class StandardOrientDbConnector {
           return newConnection();
         }
       };
+
+  private LockProvider lockProvider = new SimpleLockProvider();
 
   /**
    * Construct a new connector.
@@ -93,11 +102,45 @@ public class StandardOrientDbConnector {
     return documentProvider.get();
   }
 
-  public <T> T doInTransaction(TransactionMethod<T> method) throws JobPersistenceException {
-    ODatabaseDocumentTx db = getConnection();
-    try {
-      db.begin();
+  /**
+   * Do a method in a transaction without a lock.
+   * 
+   * @param method
+   *          the method to run in the transaction
+   * 
+   * @return the result of the method
+   * 
+   * @throws JobPersistenceException
+   *           something bad happened
+   */
+  public <T> T doInTransactionWithoutLock(TransactionMethod<T> method)
+      throws JobPersistenceException {
+    return doInTransaction(null, method);
+  }
 
+  /**
+   * Do a method in a transaction.
+   * 
+   * @param lockRequired
+   *          the name of the lock required
+   * @param method
+   *          the method to run in the transaction
+   * 
+   * @return the result of the method
+   * 
+   * @throws JobPersistenceException
+   *           something bad happened
+   */
+  public <T> T doInTransaction(String lockRequired, TransactionMethod<T> method)
+      throws JobPersistenceException {
+    ODatabaseDocumentTx db = getConnection();
+    boolean lockOwner = false;
+    try {
+      if (lockRequired != null) {
+        lockOwner = lockProvider.obtainLock(lockRequired);
+      }
+      db.begin();
+      db.getTransaction().setIsolationLevel(OTransaction.ISOLATION_LEVEL.REPEATABLE_READ);
       T result = method.doInTransaction();
 
       db.commit();
@@ -106,19 +149,32 @@ public class StandardOrientDbConnector {
     } catch (JobPersistenceException e) {
       db.rollback();
 
-      e.printStackTrace();
+      log.error("transaction failed due to JobPersistenceException", e);
 
       throw e;
     } catch (Throwable e) {
       db.rollback();
 
-      e.printStackTrace();
+      log.error("transaction failed due to Throwable", e);
 
       throw new JobPersistenceException("Transaction failed", e);
     } finally {
-      documentProvider.remove();
+      try {
+        releaseLock(lockRequired, lockOwner);
+      } finally {
+        documentProvider.remove();
+      }
     }
+  }
 
+  protected void releaseLock(String lockName, boolean amLockOwner) {
+    if (amLockOwner) {
+      try {
+        lockProvider.releaseLock(lockName);
+      } catch (LockException le) {
+        log.error("Error returning lock", le);
+      }
+    }
   }
 
   public interface TransactionMethod<T> {
@@ -296,8 +352,8 @@ public class StandardOrientDbConnector {
         lockClass.createProperty(Constants.LOCK_TYPE, OType.STRING).setNotNull(true);
         lockClass.createProperty(Constants.KEY_GROUP, OType.STRING).setNotNull(true);
         lockClass.createProperty(Constants.KEY_NAME, OType.STRING).setNotNull(true);
-        lockClass.createProperty(Constants.LOCK_INSTANCE_ID, OType.STRING);
-        lockClass.createProperty(Constants.LOCK_TIME, OType.DATE);
+        lockClass.createProperty(Constants.LOCK_INSTANCE_ID, OType.STRING).setNotNull(true);
+        lockClass.createProperty(Constants.LOCK_TIME, OType.DATE).setNotNull(true);
 
         lockClass.createIndex("LOCKS.type_group_name", OClass.INDEX_TYPE.UNIQUE,
             Constants.KEY_GROUP, Constants.KEY_NAME, Constants.LOCK_TYPE);

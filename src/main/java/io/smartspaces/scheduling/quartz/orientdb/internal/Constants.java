@@ -83,10 +83,12 @@ public interface Constants {
 
 
   String STATE_WAITING = "waiting";
+  String STATE_EXECUTING = "executing";
   String STATE_DELETED = "deleted";
   String STATE_COMPLETE = "complete";
   String STATE_PAUSED = "paused";
   String STATE_PAUSED_BLOCKED = "pausedBlocked";
   String STATE_BLOCKED = "blocked";
+  String STATE_ACQUIRED = "acquired";
   String STATE_ERROR = "error";
 }

@@ -1,5 +1,7 @@
 package io.smartspaces.scheduling.quartz.orientdb.internal.cluster;
 
+import io.smartspaces.scheduling.quartz.orientdb.internal.util.Clock;
+
 import org.quartz.JobDataMap;
 import org.quartz.JobKey;
 import org.quartz.Scheduler;
@@ -13,20 +15,24 @@ import java.util.Date;
 public class RecoveryTriggerFactory {
 
     private final String instanceId;
+    private final Clock clock;
 
-    public RecoveryTriggerFactory(String instanceId) {
+    public RecoveryTriggerFactory(String instanceId, Clock clock) {
         this.instanceId = instanceId;
+        this.clock = clock;
     }
 
     public OperableTrigger from(OperableTrigger trigger) {
+      long currentTimestamp = clock.millis();
+      
         TriggerKey tKey = trigger.getKey();
         JobKey jKey = trigger.getJobKey();
         //TODO was ftRec.getScheduleTimestamp();
-        long scheduleTimestamp = System.currentTimeMillis();
+        long scheduleTimestamp = currentTimestamp;
         //TODO was ftRec.getFireTimestamp()
-        long fireTimestamp = System.currentTimeMillis();
+        long fireTimestamp = currentTimestamp;
         SimpleTriggerImpl rcvryTrig = new SimpleTriggerImpl();
-        rcvryTrig.setName("recover_" + instanceId + "_" + System.currentTimeMillis()); //String.valueOf(recoverIds++)
+        rcvryTrig.setName("recover_" + instanceId + "_" + currentTimestamp); //String.valueOf(recoverIds++)
         rcvryTrig.setGroup(Scheduler.DEFAULT_RECOVERY_GROUP);
         rcvryTrig.setStartTime(new Date(scheduleTimestamp));
         rcvryTrig.setJobName(jKey.getName());

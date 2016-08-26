@@ -41,15 +41,13 @@ public class StandardSchedulerDao {
 
   public final String schedulerName;
   public final String instanceId;
-  public final long clusterCheckinIntervalMillis;
   public final Clock clock;
 
   public StandardSchedulerDao(StandardOrientDbStoreAssembler storeAssembler, String schedulerName,
-      String instanceId, long clusterCheckinIntervalMillis, Clock clock) {
+      String instanceId, Clock clock) {
     this.storeAssembler = storeAssembler;
     this.schedulerName = schedulerName;
     this.instanceId = instanceId;
-    this.clusterCheckinIntervalMillis = clusterCheckinIntervalMillis;
     this.clock = clock;
   }
 
@@ -60,7 +58,7 @@ public class StandardSchedulerDao {
     long lastCheckinTime = clock.millis();
 
     log.debug("Saving node data: name='{}', id='{}', checkin time={}, interval={}", schedulerName,
-        instanceId, lastCheckinTime, clusterCheckinIntervalMillis);
+        instanceId, lastCheckinTime);
 
     List<ODocument> schedulers = createSchedulerFilter(schedulerName, instanceId);
     ODocument scheduler;
@@ -71,8 +69,7 @@ public class StandardSchedulerDao {
           .field(Constants.SCHEDULER_INSTANCE_ID_FIELD, instanceId);
     }
 
-    scheduler.field(Constants.SCHEDULER_LAST_CHECKIN_TIME_FIELD, lastCheckinTime)
-        .field(Constants.SCHEDULER_CHECKIN_INTERVAL_FIELD, clusterCheckinIntervalMillis);
+    scheduler.field(Constants.SCHEDULER_LAST_CHECKIN_TIME_FIELD, lastCheckinTime);
 
     scheduler.save();
 
@@ -92,7 +89,7 @@ public class StandardSchedulerDao {
       log.debug("Returning scheduler instance '{}' with last checkin time: {}",
           scheduler.getInstanceId(), scheduler.getLastCheckinTime());
     } else {
-      log.info("Scheduler instance '{}' not found.");
+      log.info("Scheduler instance '{}' not found.", instanceId);
     }
     return scheduler;
   }

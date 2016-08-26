@@ -44,6 +44,9 @@ import io.smartspaces.scheduling.quartz.orientdb.internal.trigger.TriggerConvert
 import io.smartspaces.scheduling.quartz.orientdb.internal.util.Keys;
 import io.smartspaces.scheduling.quartz.orientdb.internal.util.QueryHelper;
 
+/**
+ * The DAO for triggers.
+ */
 public class StandardTriggerDao {
 
   private static final Logger log = LoggerFactory.getLogger(StandardTriggerDao.class);
@@ -61,6 +64,9 @@ public class StandardTriggerDao {
     this.triggerConverter = triggerConverter;
   }
 
+  /**
+   * Remove all triggers from the database.
+   */
   public void removeAll() {
     ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
     for (ODocument trigger : database.browseClass("Trigger")) {
@@ -68,6 +74,14 @@ public class StandardTriggerDao {
     }
   }
 
+  /**
+   * Does the trigger with the given key exist n the database?
+   * 
+   * @param triggerKey
+   *          the key of the trigger to check for
+   * 
+   * @return {@code true} if the trigger exists
+   */
   public boolean exists(TriggerKey triggerKey) {
     // TODO(keith): class and field names should come from external
     // constants
@@ -81,13 +95,23 @@ public class StandardTriggerDao {
     return !result.isEmpty();
   }
 
+  /**
+   * Get a list of all eligable triggers to run.
+   * 
+   * @param noLaterThanDate
+   *        the date to check for
+   *        
+   * @return the list of documents for eligable triggers
+   */
   public List<ODocument> findEligibleToRun(Date noLaterThanDate) {
     // TODO(keith): class and field names should come from external
     // constants
     // Also create query ahead of time when DAO starts.
+    //
+    // The query needs to include misfire instructions, see JDBCJobStore
     ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
     OSQLSynchQuery<ODocument> query = new OSQLSynchQuery<ODocument>(
-        "select from Trigger where (nextFireTime is null or nextFireTime <= ?) and state = 'waiting' order by nextFireTime asc");
+        "select from Trigger where (nextFireTime is null or nextFireTime <= ?) and state = 'waiting' order by nextFireTime asc, priority desc");
     List<ODocument> result = database.command(query).execute(noLaterThanDate);
 
     if (log.isInfoEnabled()) {
@@ -97,6 +121,11 @@ public class StandardTriggerDao {
     return result;
   }
 
+  /**
+   * Get the number of triggers in the database.
+   * 
+   * @return the number of triggers
+   */
   public int getCount() {
     ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
     return (int) database.countClass("Trigger");
@@ -161,28 +190,28 @@ public class StandardTriggerDao {
     OSQLSynchQuery<ODocument> query =
         new OSQLSynchQuery<ODocument>("select from Trigger where jobId=? limit 2");
     ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
-    List<ODocument> referencedTriggers = database.command(query).execute(job.getIdentity());
+    List<ODocument> referencedTriggerDocs = database.command(query).execute(job.getIdentity());
 
-    return referencedTriggers.size() == 1;
+    return referencedTriggerDocs.size() == 1;
   }
 
-  public void insert(ODocument trigger, Trigger offendingTrigger)
+  public void insert(ODocument triggerDoc, Trigger offendingTrigger)
       throws ObjectAlreadyExistsException {
     try {
-      trigger.save();
+      triggerDoc.save();
     } catch (Exception key) {
       throw new ObjectAlreadyExistsException(offendingTrigger);
     }
   }
 
   public void remove(TriggerKey triggerKey) {
-    for (ODocument trigger : getTriggersByKey(triggerKey)) {
-      trigger.delete();
+    for (ODocument triggerDoc : getTriggerDocsByKey(triggerKey)) {
+      triggerDoc.delete();
     }
   }
 
-  public void remove(ODocument trigger) {
-    trigger.delete();
+  public void remove(ODocument triggerDoc) {
+    triggerDoc.delete();
   }
 
   public void removeByJobId(ORID jobId) {
@@ -191,19 +220,38 @@ public class StandardTriggerDao {
     }
   }
 
-  public void replace(TriggerKey triggerKey, ODocument triggerUpdate) {
+  public int replace(TriggerKey triggerKey, ODocument triggerUpdate) {
     if (log.isInfoEnabled()) {
-      log.info("Replacing trigger {} triggers wwith data {} at {}", triggerKey, triggerUpdate, new Date());
+      log.info("Replacing trigger {} triggers with data {} at {}", triggerKey, triggerUpdate,
+          new Date());
     }
-    for (ODocument trigger : getTriggersByKey(triggerKey)) {
+    int count = 0;
+    for (ODocument trigger : getTriggerDocsByKey(triggerKey)) {
       trigger.merge(triggerUpdate, true, true).save();
+      count++;
     }
+
+    return count;
   }
 
-  public void setState(TriggerKey triggerKey, String state) {
-    for (ODocument trigger : getTriggersByKey(triggerKey)) {
-      trigger.field(Constants.TRIGGER_STATE, state).save();
+  /**
+   * Set the state for the given trigger key.
+   * 
+   * @param triggerKey
+   *          the trigger key
+   * @param state
+   *          the new state
+   * 
+   * @return the number of records updated
+   */
+  public int setState(TriggerKey triggerKey, String state) {
+    int count = 0;
+    for (ODocument triggerDoc : getTriggerDocsByKey(triggerKey)) {
+      triggerDoc.field(Constants.TRIGGER_STATE, state).save();
+      log.debug("Changed trigger {} state {}", triggerKey, triggerDoc);
     }
+
+    return count;
   }
 
   public void setStateInAll(String state) {
@@ -285,7 +333,7 @@ public class StandardTriggerDao {
    * @return the trigger for the key, or {@code null} if no such trigger
    */
   public ODocument findTrigger(TriggerKey triggerKey) {
-    List<ODocument> triggers = getTriggersByKey(triggerKey);
+    List<ODocument> triggers = getTriggerDocsByKey(triggerKey);
 
     if (!triggers.isEmpty()) {
       return triggers.get(0);
@@ -308,7 +356,7 @@ public class StandardTriggerDao {
     }
   }
 
-  private List<ODocument> getTriggersByKey(TriggerKey triggerKey) {
+  private List<ODocument> getTriggerDocsByKey(TriggerKey triggerKey) {
     // TODO(keith): class and field names should come from external
     // constants
     // Also create query ahead of time when DAO starts.

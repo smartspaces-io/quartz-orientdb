@@ -46,9 +46,9 @@ public class TriggerConverter {
     this.jobDao = jobDao;
   }
 
-  public ODocument toDocument(OperableTrigger newTrigger, ORID jobId)
+  public ODocument toDocument(OperableTrigger newTrigger, ORID jobId, String state)
       throws JobPersistenceException {
-    ODocument trigger = convertToDocument(newTrigger, jobId);
+    ODocument trigger = convertToDocument(newTrigger, jobId, state);
     if (newTrigger.getJobDataMap().size() > 0) {
       try {
         String jobDataString = SerialUtils.serialize(newTrigger.getJobDataMap());
@@ -103,9 +103,9 @@ public class TriggerConverter {
     return toTrigger(key, doc);
   }
 
-  private ODocument convertToDocument(OperableTrigger newTrigger, ORID jobId) {
+  private ODocument convertToDocument(OperableTrigger newTrigger, ORID jobId, String state) {
     ODocument trigger = new ODocument("Trigger");
-    trigger.field(Constants.TRIGGER_STATE, Constants.STATE_WAITING);
+    trigger.field(Constants.TRIGGER_STATE, state);
     trigger.field(Constants.TRIGGER_CALENDAR_NAME, newTrigger.getCalendarName());
     trigger.field(Constants.TRIGGER_CLASS, newTrigger.getClass().getName());
     trigger.field(Constants.TRIGGER_DESCRIPTION, newTrigger.getDescription());

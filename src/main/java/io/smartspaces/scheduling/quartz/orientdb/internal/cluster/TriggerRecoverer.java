@@ -49,7 +49,7 @@ public class TriggerRecoverer {
             // so they don't recover it.
             if (locksDao.updateOwnLock(trigger.getKey())) {
                 doRecovery(trigger);
-                lockManager.unlockAcquiredTrigger(trigger);
+                lockManager.releaseAcquiredTrigger(trigger);
             }
         }
     }

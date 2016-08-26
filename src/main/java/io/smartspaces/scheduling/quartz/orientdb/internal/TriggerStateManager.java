@@ -23,10 +23,11 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.quartz.JobKey;
+import org.quartz.JobPersistenceException;
 import org.quartz.Trigger.TriggerState;
 import org.quartz.TriggerKey;
 import org.quartz.impl.matchers.GroupMatcher;
-
+import org.quartz.spi.OperableTrigger;
 import com.orientechnologies.orient.core.id.ORID;
 
 import io.smartspaces.scheduling.quartz.orientdb.internal.dao.StandardJobDao;
@@ -38,7 +39,7 @@ public class TriggerStateManager {
 
   private final StandardTriggerDao triggerDao;
   private final StandardJobDao jobDao;
-  private StandardPausedJobGroupsDao pausedJobGroupsDao;
+  private final StandardPausedJobGroupsDao pausedJobGroupsDao;
   private final StandardPausedTriggerGroupsDao pausedTriggerGroupsDao;
 
   public TriggerStateManager(StandardTriggerDao triggerDao, StandardJobDao jobDao,
@@ -95,7 +96,7 @@ public class TriggerStateManager {
     triggerDao.setState(triggerKey, Constants.STATE_WAITING);
   }
 
-  public Collection<String> resume(GroupMatcher<TriggerKey> matcher) {
+  public Collection<String> resumeTriggerGroup(GroupMatcher<TriggerKey> matcher) {
     triggerDao.setStateInMatching(matcher, Constants.STATE_WAITING);
 
     Set<String> triggerGroupsThatMatch = triggerDao.getTriggerGroupsThatMatch(matcher);
@@ -103,7 +104,7 @@ public class TriggerStateManager {
     return triggerGroupsThatMatch;
   }
 
-  public void resume(JobKey jobKey) {
+  public void resumeJob(JobKey jobKey) {
     ORID jobId = jobDao.getJob(jobKey).getIdentity();
     // TODO: port blocking behavior and misfired triggers handling from
     // StdJDBCDelegate in Quartz
@@ -121,6 +122,14 @@ public class TriggerStateManager {
     pausedJobGroupsDao.unpauseGroups(groups);
     
     return groups;
+  }
+
+  public void releaseAcquiredTrigger(OperableTrigger trigger) throws JobPersistenceException {
+    try {
+      triggerDao.setState(trigger.getKey(), Constants.STATE_WAITING);
+    } catch (Exception e) {
+      throw new JobPersistenceException(e.getLocalizedMessage(), e);
+    }
   }
 
   private TriggerState getTriggerState(String value) {

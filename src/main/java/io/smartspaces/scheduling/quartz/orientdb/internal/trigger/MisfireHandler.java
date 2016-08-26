@@ -1,12 +1,13 @@
 package io.smartspaces.scheduling.quartz.orientdb.internal.trigger;
 
+import io.smartspaces.scheduling.quartz.orientdb.internal.dao.StandardCalendarDao;
+import io.smartspaces.scheduling.quartz.orientdb.internal.util.Clock;
+
 import org.quartz.Calendar;
 import org.quartz.JobPersistenceException;
 import org.quartz.Trigger;
 import org.quartz.spi.OperableTrigger;
 import org.quartz.spi.SchedulerSignaler;
-
-import io.smartspaces.scheduling.quartz.orientdb.internal.dao.StandardCalendarDao;
 
 import java.util.Date;
 
@@ -15,77 +16,81 @@ import java.util.Date;
  */
 public class MisfireHandler {
 
-    private final StandardCalendarDao calendarDao;
-    private final SchedulerSignaler signaler;
-    private final long misfireThreshold;
+  private final StandardCalendarDao calendarDao;
+  private final SchedulerSignaler signaler;
+  private final long misfireThreshold;
+  private final Clock clock;
 
-    public MisfireHandler(StandardCalendarDao calendarDao, SchedulerSignaler signaler, long misfireThreshold) {
-        this.calendarDao = calendarDao;
-        this.signaler = signaler;
-        this.misfireThreshold = misfireThreshold;
+  public MisfireHandler(StandardCalendarDao calendarDao, SchedulerSignaler signaler,
+      long misfireThreshold, Clock clock) {
+    this.calendarDao = calendarDao;
+    this.signaler = signaler;
+    this.misfireThreshold = misfireThreshold;
+    this.clock = clock;
+  }
+
+  /**
+   * Return true when misfire have been applied and trigger has next fire time.
+   *
+   * @param trigger
+   *          on which apply misfire logic
+   * @return true when result of misfire is next fire time
+   */
+  public boolean applyMisfireOnRecovery(OperableTrigger trigger) throws JobPersistenceException {
+    if (trigger.getMisfireInstruction() == Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY) {
+      return false;
     }
 
-    /**
-     * Return true when misfire have been applied and trigger has next fire time.
-     *
-     * @param trigger    on which apply misfire logic
-     * @return true when result of misfire is next fire time
-     */
-    public boolean applyMisfireOnRecovery(OperableTrigger trigger) throws JobPersistenceException {
-        if (trigger.getMisfireInstruction() == Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY) {
-            return false;
-        }
-
-        Calendar cal = null;
-        if (trigger.getCalendarName() != null) {
-            cal = retrieveCalendar(trigger);
-        }
-
-        signaler.notifyTriggerListenersMisfired(trigger);
-
-        trigger.updateAfterMisfire(cal);
-
-        return trigger.getNextFireTime() != null;
+    Calendar cal = null;
+    if (trigger.getCalendarName() != null) {
+      cal = retrieveCalendar(trigger);
     }
 
-    public boolean applyMisfire(OperableTrigger trigger) throws JobPersistenceException {
-        Date fireTime = trigger.getNextFireTime();
-        if (misfireIsNotApplicable(trigger, fireTime)) {
-            return false;
-        }
+    signaler.notifyTriggerListenersMisfired(trigger);
 
-        org.quartz.Calendar cal = retrieveCalendar(trigger);
+    trigger.updateAfterMisfire(cal);
 
-        signaler.notifyTriggerListenersMisfired((OperableTrigger) trigger.clone());
+    return trigger.getNextFireTime() != null;
+  }
 
-        trigger.updateAfterMisfire(cal);
-
-        if (trigger.getNextFireTime() == null) {
-            signaler.notifySchedulerListenersFinalized(trigger);
-        } else if (fireTime.equals(trigger.getNextFireTime())) {
-            return false;
-        }
-        return true;
+  public boolean applyMisfire(OperableTrigger trigger) throws JobPersistenceException {
+    Date fireTime = trigger.getNextFireTime();
+    if (misfireIsNotApplicable(trigger, fireTime)) {
+      return false;
     }
 
-    private long calculateMisfireTime() {
-        long misfireTime = System.currentTimeMillis();
-        if (misfireThreshold > 0) {
-            misfireTime -= misfireThreshold;
-        }
-        return misfireTime;
-    }
+    org.quartz.Calendar cal = retrieveCalendar(trigger);
 
-    private boolean misfireIsNotApplicable(OperableTrigger trigger, Date fireTime) {
-        return fireTime == null || isNotMisfired(fireTime)
-                || trigger.getMisfireInstruction() == Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY;
-    }
+    signaler.notifyTriggerListenersMisfired((OperableTrigger) trigger.clone());
 
-    private boolean isNotMisfired(Date fireTime) {
-        return calculateMisfireTime() < fireTime.getTime();
-    }
+    trigger.updateAfterMisfire(cal);
 
-    private Calendar retrieveCalendar(OperableTrigger trigger) throws JobPersistenceException {
-        return calendarDao.retrieveCalendar(trigger.getCalendarName());
+    if (trigger.getNextFireTime() == null) {
+      signaler.notifySchedulerListenersFinalized(trigger);
+    } else if (fireTime.equals(trigger.getNextFireTime())) {
+      return false;
     }
+    return true;
+  }
+
+  private long calculateMisfireTime() {
+    long misfireTime = clock.millis();
+    if (misfireThreshold > 0) {
+      misfireTime -= misfireThreshold;
+    }
+    return misfireTime;
+  }
+
+  private boolean misfireIsNotApplicable(OperableTrigger trigger, Date fireTime) {
+    return fireTime == null || isNotMisfired(fireTime)
+        || trigger.getMisfireInstruction() == Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY;
+  }
+
+  private boolean isNotMisfired(Date fireTime) {
+    return calculateMisfireTime() < fireTime.getTime();
+  }
+
+  private Calendar retrieveCalendar(OperableTrigger trigger) throws JobPersistenceException {
+    return calendarDao.retrieveCalendar(trigger.getCalendarName());
+  }
 }

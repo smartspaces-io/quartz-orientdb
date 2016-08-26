@@ -56,7 +56,7 @@ public class LockManager {
     }
   }
 
-  public void unlockAcquiredTrigger(OperableTrigger trigger) throws JobPersistenceException {
+  public void releaseAcquiredTrigger(OperableTrigger trigger) throws JobPersistenceException {
     try {
       locksDao.unlockTrigger(trigger);
     } catch (Exception e) {
@@ -70,7 +70,7 @@ public class LockManager {
    * @param job
    *          job to potentially unlock
    */
-  public void unlockExpired(JobDetail job) {
+  public void unlockExpiredJob(JobDetail job) {
     ODocument existingLock = locksDao.findJobLock(job.getKey());
     if (existingLock != null) {
       if (expiryCalculator.isJobLockExpired(existingLock)) {
@@ -85,13 +85,13 @@ public class LockManager {
    * 
    * @param triggerKey
    *          trigger to lock
-   *          
+   * 
    * @return {@code true} when successfully locked
    */
   public boolean tryTriggerLock(TriggerKey triggerKey) {
-	if (locksDao.doesTriggerLockExist(triggerKey)) {
-	  return false;
-	}
+    if (locksDao.doesTriggerLockExist(triggerKey)) {
+      return false;
+    }
     try {
       locksDao.lockTrigger(triggerKey);
       return true;
@@ -115,17 +115,15 @@ public class LockManager {
         // When a scheduler is defunct then its triggers become expired
         // after sometime and can be recovered by other schedulers.
         // To check that a trigger is owned by a defunct scheduler we
-        // evaluate
-        // its LOCK_TIME and try to reassign it to this scheduler.
+        // evaluate its LOCK_TIME and try to reassign it to this scheduler.
         // Relock may not be successful when some other scheduler has
-        // done
-        // it first.
-        log.info("Trigger {} is expired - re-locking", key);
+        // done it first.
+        log.info("Trigger lock {} is expired - re-locking", key);
         Date existingLockDate = existingLock.field(Constants.LOCK_TIME);
         return locksDao.relock(key, existingLockDate);
       } else {
         Date lockTime = existingLock.field(Constants.LOCK_TIME);
-        log.info("Trigger {} hasn't expired yet. Lock time: {}", key, lockTime);
+        log.info("Trigger lock {} hasn't expired yet. Lock time: {}", key, lockTime);
       }
     } else {
       log.warn("Error retrieving expired lock from the database. Maybe it was deleted");
