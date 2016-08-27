@@ -48,14 +48,12 @@ public class StandardOrientDbStoreAssembler {
 
   private StandardOrientDbConnector orientDbConnector;
   private JobCompleteHandler jobCompleteHandler;
-  private LockManager lockManager;
   private TriggerStateManager triggerStateManager;
   private TriggerRunner triggerRunner;
   private TriggerAndJobPersister persister;
 
   private StandardCalendarDao calendarDao;
   private StandardJobDao jobDao;
-  private StandardLockDao locksDao;
   private StandardSchedulerDao schedulerDao;
   private StandardPausedJobGroupsDao pausedJobGroupsDao;
   private StandardPausedTriggerGroupsDao pausedTriggerGroupsDao;
@@ -70,10 +68,12 @@ public class StandardOrientDbStoreAssembler {
   /**
    * The clock to use.
    */
-  private Clock clock = Clock.SYSTEM_CLOCK;
+  private Clock clock;
 
   public void build(OrientDbJobStore jobStore, ClassLoadHelper loadHelper,
-      SchedulerSignaler signaler) throws SchedulerConfigException {
+      SchedulerSignaler signaler, Clock clock) throws SchedulerConfigException {
+    this.clock = clock;
+
     orientDbConnector = createOrientDbConnector(jobStore);
 
     jobDao = createJobDao(jobStore, loadHelper);
@@ -82,7 +82,6 @@ public class StandardOrientDbStoreAssembler {
 
     triggerDao = createTriggerDao(jobStore);
     calendarDao = createCalendarDao(jobStore);
-    locksDao = createLocksDao(jobStore);
     pausedJobGroupsDao = createPausedJobGroupsDao(jobStore);
     pausedTriggerGroupsDao = createPausedTriggerGroupsDao(jobStore);
     schedulerDao = createSchedulerDao(jobStore);
@@ -91,8 +90,6 @@ public class StandardOrientDbStoreAssembler {
 
     jobCompleteHandler = createJobCompleteHandler(signaler);
 
-    lockManager = createLockManager(jobStore);
-
     triggerStateManager = createTriggerStateManager();
 
     MisfireHandler misfireHandler = createMisfireHandler(jobStore, signaler);
@@ -100,8 +97,8 @@ public class StandardOrientDbStoreAssembler {
     RecoveryTriggerFactory recoveryTriggerFactory =
         new RecoveryTriggerFactory(jobStore.getInstanceId(), clock);
 
-    triggerRecoverer = new TriggerRecoverer(locksDao, persister, lockManager, triggerDao, jobDao,
-        recoveryTriggerFactory, misfireHandler);
+    triggerRecoverer =
+        new TriggerRecoverer(persister, triggerDao, jobDao, recoveryTriggerFactory, misfireHandler);
 
     triggerRunner = createTriggerRunner(misfireHandler);
 
@@ -114,10 +111,6 @@ public class StandardOrientDbStoreAssembler {
 
   public JobCompleteHandler getJobCompleteHandler() {
     return jobCompleteHandler;
-  }
-
-  public LockManager getLockManager() {
-    return lockManager;
   }
 
   public TriggerStateManager getTriggerStateManager() {
@@ -154,10 +147,6 @@ public class StandardOrientDbStoreAssembler {
 
   public StandardJobDao getJobDao() {
     return jobDao;
-  }
-
-  public StandardLockDao getLocksDao() {
-    return locksDao;
   }
 
   public StandardSchedulerDao getSchedulerDao() {
@@ -197,12 +186,6 @@ public class StandardOrientDbStoreAssembler {
 
   private StandardLockDao createLocksDao(OrientDbJobStore jobStore) {
     return new StandardLockDao(this, Clock.SYSTEM_CLOCK, jobStore.getInstanceId());
-  }
-
-  private LockManager createLockManager(OrientDbJobStore jobStore) {
-    ExpiryCalculator expiryCalculator = new ExpiryCalculator(schedulerDao, Clock.SYSTEM_CLOCK,
-        jobStore.getJobTimeoutMillis(), jobStore.getTriggerTimeoutMillis());
-    return new LockManager(locksDao, expiryCalculator);
   }
 
   private MisfireHandler createMisfireHandler(OrientDbJobStore jobStore,

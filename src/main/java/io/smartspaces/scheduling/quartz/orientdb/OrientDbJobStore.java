@@ -32,6 +32,7 @@ import io.smartspaces.scheduling.quartz.orientdb.internal.StandardOrientDbStoreA
 import io.smartspaces.scheduling.quartz.orientdb.internal.cluster.CheckinExecutor;
 import io.smartspaces.scheduling.quartz.orientdb.internal.db.StandardOrientDbConnector;
 import io.smartspaces.scheduling.quartz.orientdb.internal.db.StandardOrientDbConnector.TransactionMethod;
+import io.smartspaces.scheduling.quartz.orientdb.internal.util.Clock;
 
 import org.quartz.Calendar;
 import org.quartz.JobDetail;
@@ -84,6 +85,8 @@ public class OrientDbJobStore implements JobStore {
   private long misfireThreshold = 60000;
   private long triggerTimeoutMillis = 10 * 60 * 1000L;
   private long jobTimeoutMillis = 10 * 60 * 1000L;
+  
+  private Clock clock = Clock.SYSTEM_CLOCK;
 
   /**
    * The assembler for the job store.
@@ -116,7 +119,7 @@ public class OrientDbJobStore implements JobStore {
   @Override
   public void initialize(ClassLoadHelper loadHelper, SchedulerSignaler signaler)
       throws SchedulerConfigException {
-    assembler.build(this, loadHelper, signaler);
+    assembler.build(this, loadHelper, signaler, clock);
 
     try {
       assembler.getOrientDbConnector().doInTransactionWithoutLock(new TransactionMethod<Void>() {
@@ -145,7 +148,8 @@ public class OrientDbJobStore implements JobStore {
       assembler.getCheckinExecutor().start();
     } else {
       try {
-        assembler.getLocksDao().removeAllInstanceLocks();
+        // Should look for misfires
+        //assembler.getLocksDao().removeAllInstanceLocks();
       } catch (Exception e) {
         throw new JobPersistenceException("Fail",
             new SchedulerConfigException("Cannot remove instance locks", e));
@@ -832,5 +836,13 @@ public class OrientDbJobStore implements JobStore {
 
   public void setAuthDbName(String authDbName) {
     this.authDbName = authDbName;
+  }
+
+  public Clock getClock() {
+    return clock;
+  }
+
+  public void setClock(Clock clock) {
+    this.clock = clock;
   }
 }
