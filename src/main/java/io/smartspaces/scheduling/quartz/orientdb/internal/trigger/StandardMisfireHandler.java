@@ -43,7 +43,7 @@ import java.util.List;
 /**
  * Handle misfires.
  */
-public class StandardMisfireHandler implements MisfireHandler, MisfireHandler {
+public class StandardMisfireHandler implements MisfireHandler {
 
   /**
    * The time in milliseconds to sleep between misfire scans.
