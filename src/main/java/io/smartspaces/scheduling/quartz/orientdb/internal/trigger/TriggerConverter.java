@@ -25,6 +25,7 @@ import org.quartz.Job;
 import org.quartz.JobKey;
 import org.quartz.JobPersistenceException;
 import org.quartz.TriggerKey;
+import org.quartz.spi.ClassLoadHelper;
 import org.quartz.spi.OperableTrigger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,10 +42,13 @@ public class TriggerConverter {
   private static final Logger log = LoggerFactory.getLogger(TriggerConverter.class);
 
   private StandardJobDao jobDao;
+  private ClassLoadHelper classLoadHelper;
 
-  public TriggerConverter(StandardJobDao jobDao) {
+  public TriggerConverter(StandardJobDao jobDao, ClassLoadHelper classLoadHelper) {
     this.jobDao = jobDao;
-  }
+    this.classLoadHelper = classLoadHelper;
+
+  };
 
   public ODocument toDocument(OperableTrigger newTrigger, ORID jobId, String state)
       throws JobPersistenceException {
@@ -65,11 +69,16 @@ public class TriggerConverter {
   }
 
   /**
-   * Restore trigger from Mongo Document.
+   * Restore trigger from the OrientDB Document.
    *
    * @param triggerKey
+   *          the trigger key
    * @param triggerDoc
-   * @return trigger from Document or null when trigger has no associated job
+   *          the OrientDB document for the trigger
+   * 
+   * @return trigger from Document or {@code null} when trigger has no
+   *         associated job
+   * 
    * @throws JobPersistenceException
    */
   public OperableTrigger toTrigger(TriggerKey triggerKey, ODocument triggerDoc)
@@ -99,7 +108,8 @@ public class TriggerConverter {
   }
 
   public OperableTrigger toTrigger(ODocument doc) throws JobPersistenceException {
-    TriggerKey key = new TriggerKey((String) doc.field(Constants.KEY_NAME), (String) doc.field(Constants.KEY_GROUP));
+    TriggerKey key = new TriggerKey((String) doc.field(Constants.KEY_NAME),
+        (String) doc.field(Constants.KEY_GROUP));
     return toTrigger(key, doc);
   }
 
@@ -120,6 +130,7 @@ public class TriggerConverter {
     trigger.field(Constants.TRIGGER_PREVIOUS_FIRE_TIME, newTrigger.getPreviousFireTime());
     trigger.field(Constants.TRIGGER_PRIORITY, newTrigger.getPriority());
     trigger.field(Constants.TRIGGER_START_TIME, newTrigger.getStartTime());
+    
     return trigger;
   }
 
@@ -128,7 +139,7 @@ public class TriggerConverter {
     try {
       @SuppressWarnings("unchecked")
       Class<OperableTrigger> triggerClass =
-          (Class<OperableTrigger>) getTriggerClassLoader().loadClass(triggerClassName);
+          (Class<OperableTrigger>) classLoadHelper.loadClass(triggerClassName);
       return triggerClass.newInstance();
     } catch (ClassNotFoundException e) {
       throw new JobPersistenceException("Could not find trigger class " + triggerClassName);
@@ -137,17 +148,14 @@ public class TriggerConverter {
     }
   }
 
-  private ClassLoader getTriggerClassLoader() {
-    return Job.class.getClassLoader();
-  }
-
   private void loadCommonProperties(TriggerKey triggerKey, ODocument triggerDoc,
       OperableTrigger trigger) {
     trigger.setKey(triggerKey);
     trigger.setCalendarName((String) triggerDoc.field(Constants.TRIGGER_CALENDAR_NAME));
     trigger.setDescription((String) triggerDoc.field(Constants.TRIGGER_DESCRIPTION));
     trigger.setFireInstanceId((String) triggerDoc.field(Constants.TRIGGER_FIRE_INSTANCE_ID));
-    trigger.setMisfireInstruction((Integer) triggerDoc.field(Constants.TRIGGER_MISFIRE_INSTRUCTION));
+    trigger
+        .setMisfireInstruction((Integer) triggerDoc.field(Constants.TRIGGER_MISFIRE_INSTRUCTION));
     trigger.setNextFireTime((Date) triggerDoc.field(Constants.TRIGGER_NEXT_FIRE_TIME));
     trigger.setPreviousFireTime((Date) triggerDoc.field(Constants.TRIGGER_PREVIOUS_FIRE_TIME));
     trigger.setPriority((Integer) triggerDoc.field(Constants.TRIGGER_PRIORITY));

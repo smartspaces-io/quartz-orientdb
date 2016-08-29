@@ -37,9 +37,9 @@ import org.quartz.Trigger;
 import org.quartz.Trigger.CompletedExecutionInstruction;
 import org.quartz.Trigger.TriggerState;
 import org.quartz.TriggerKey;
+import org.quartz.TriggerListener;
 import org.quartz.impl.DirectSchedulerFactory;
 import org.quartz.impl.matchers.GroupMatcher;
-import org.quartz.simpl.RAMJobStore;
 import org.quartz.simpl.SimpleThreadPool;
 import org.quartz.spi.ClassLoadHelper;
 import org.quartz.spi.JobStore;
@@ -67,6 +67,8 @@ public class Test {
   private static final String SCHEDULER_NAME = "SmartSpacesScheduler";
   private static final String SCHEDULER_INSTANCE_ID = "MainSchedulerNonClustered";
 
+  private static final Logger LOG = LoggerFactory.getLogger(Test.class);
+
   public static void main(String[] args) throws Exception {
     OrientDbJobStore jobStore =
         new OrientDbJobStore(ORIENTDB_URI, ORIENTDB_USER, ORIENTDB_PASSWORD);
@@ -77,10 +79,40 @@ public class Test {
 
     Scheduler scheduler = instance.getScheduler(SCHEDULER_NAME);
 
+    scheduler.getListenerManager().addTriggerListener(new TriggerListener() {
+
+      @Override
+      public String getName() {
+        return "SToopid trigger listener";
+      }
+
+      @Override
+      public void triggerFired(Trigger trigger, JobExecutionContext context) {
+        LOG.debug("Listener sez Trigger fired {}", trigger);
+      }
+
+      @Override
+      public boolean vetoJobExecution(Trigger trigger, JobExecutionContext context) {
+        // TODO Auto-generated method stub
+        return false;
+      }
+
+      @Override
+      public void triggerMisfired(Trigger trigger) {
+        LOG.debug("Listener sez Trigger misfired {}", trigger);
+      }
+
+      @Override
+      public void triggerComplete(Trigger trigger, JobExecutionContext context,
+          CompletedExecutionInstruction triggerInstructionCode) {
+        LOG.debug("Listener sez Trigger completed {}", trigger);
+
+      }
+    });
     scheduler.start();
 
-    scheduleSimpleJob(scheduler, "simple1");
-    scheduleCronJob(scheduler, "0 0/1 * * * ?", "cron");
+    // scheduleSimpleJob(scheduler, "simple1");
+    // scheduleCronJob(scheduler, "0 0/1 * * * ?", "cron");
   }
 
   private static void scheduleSimpleJob(Scheduler scheduler, String data)

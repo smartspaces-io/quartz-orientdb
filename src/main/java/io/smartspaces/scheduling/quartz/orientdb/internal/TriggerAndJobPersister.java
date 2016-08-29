@@ -46,7 +46,7 @@ import java.util.List;
 
 public class TriggerAndJobPersister {
 
-  private static final Logger log = LoggerFactory.getLogger(TriggerAndJobPersister.class);
+  private static final Logger LOG = LoggerFactory.getLogger(TriggerAndJobPersister.class);
 
   private final StandardTriggerDao triggerDao;
   private final StandardJobDao jobDao;
@@ -110,7 +110,7 @@ public class TriggerAndJobPersister {
    */
   public boolean removeTriggerWithoutNextFireTime(OperableTrigger trigger) {
     if (trigger.getNextFireTime() == null) {
-      log.info("Removing trigger {} as it has no next fire time.", trigger.getKey());
+      LOG.info("Removing trigger {} as it has no next fire time.", trigger.getKey());
       removeTrigger(trigger.getKey());
       return true;
     }
@@ -150,6 +150,14 @@ public class TriggerAndJobPersister {
 
     if (existingTriggerDoc != null && !replaceExisting) {
       throw new ObjectAlreadyExistsException(newTrigger);
+    }
+
+    if (job == null) {
+      job = jobDao.retrieveJob(newTrigger.getJobKey());
+    }
+    if (job == null) {
+      throw new JobPersistenceException(
+          "The job (" + newTrigger.getJobKey() + ") referenced by the trigger does not exist.");
     }
 
     storeTrigger(newTrigger, job.getKey(), state, replaceExisting);
@@ -207,7 +215,7 @@ public class TriggerAndJobPersister {
         jobDao.remove(job);
       }
     } else {
-      log.debug("The trigger had no associated jobs");
+      LOG.debug("The trigger had no associated jobs");
     }
   }
 
@@ -236,7 +244,7 @@ public class TriggerAndJobPersister {
   private void storeTrigger(OperableTrigger trigger, ORID jobId, String state,
       boolean replaceExisting) throws JobPersistenceException {
     ODocument triggerDoc = triggerConverter.toDocument(trigger, jobId, state);
-    log.debug("Storing trigger doc {}", triggerDoc);
+    LOG.debug("Storing trigger doc {}", triggerDoc);
     if (replaceExisting) {
       triggerDao.replace(trigger.getKey(), triggerDoc);
     } else {

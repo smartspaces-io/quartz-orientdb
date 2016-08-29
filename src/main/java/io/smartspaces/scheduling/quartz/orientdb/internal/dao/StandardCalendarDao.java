@@ -67,7 +67,7 @@ public class StandardCalendarDao {
     return false;
   }
 
-  public Calendar retrieveCalendar(String calName) throws JobPersistenceException {
+  public Calendar getCalendar(String calName) throws JobPersistenceException {
     if (calName != null) {
       List<ODocument> result = getCalendarsByName(calName);
       if (!result.isEmpty()) {

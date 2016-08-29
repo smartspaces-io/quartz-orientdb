@@ -31,9 +31,9 @@ import io.smartspaces.scheduling.quartz.orientdb.internal.dao.StandardSchedulerD
 import io.smartspaces.scheduling.quartz.orientdb.internal.dao.StandardTriggerDao;
 import io.smartspaces.scheduling.quartz.orientdb.internal.db.StandardOrientDbConnector;
 import io.smartspaces.scheduling.quartz.orientdb.internal.trigger.MisfireHandler;
+import io.smartspaces.scheduling.quartz.orientdb.internal.trigger.StandardMisfireHandler;
 import io.smartspaces.scheduling.quartz.orientdb.internal.trigger.TriggerConverter;
 import io.smartspaces.scheduling.quartz.orientdb.internal.util.Clock;
-import io.smartspaces.scheduling.quartz.orientdb.internal.util.ExpiryCalculator;
 import io.smartspaces.scheduling.quartz.orientdb.internal.util.QueryHelper;
 
 import org.quartz.SchedulerConfigException;
@@ -52,6 +52,8 @@ public class StandardOrientDbStoreAssembler {
   private TriggerRunner triggerRunner;
   private TriggerAndJobPersister persister;
 
+  private MisfireHandler misfireHandler;
+
   private StandardCalendarDao calendarDao;
   private StandardJobDao jobDao;
   private StandardSchedulerDao schedulerDao;
@@ -65,20 +67,24 @@ public class StandardOrientDbStoreAssembler {
   private QueryHelper queryHelper = new QueryHelper();
   private TriggerConverter triggerConverter;
 
+  private long dbRetryInterval;
+
   /**
    * The clock to use.
    */
   private Clock clock;
 
-  public void build(OrientDbJobStore jobStore, ClassLoadHelper loadHelper,
-      SchedulerSignaler signaler, Clock clock) throws SchedulerConfigException {
+  public void build(OrientDbJobStore jobStore, ClassLoadHelper classLoadHelper,
+      SchedulerSignaler signaler, Clock clock, long dbRetryInterval)
+      throws SchedulerConfigException {
     this.clock = clock;
+    this.dbRetryInterval = dbRetryInterval;
 
     orientDbConnector = createOrientDbConnector(jobStore);
 
-    jobDao = createJobDao(jobStore, loadHelper);
+    jobDao = createJobDao(jobStore, classLoadHelper);
 
-    triggerConverter = new TriggerConverter(jobDao);
+    triggerConverter = new TriggerConverter(jobDao, classLoadHelper);
 
     triggerDao = createTriggerDao(jobStore);
     calendarDao = createCalendarDao(jobStore);
@@ -92,7 +98,7 @@ public class StandardOrientDbStoreAssembler {
 
     triggerStateManager = createTriggerStateManager();
 
-    MisfireHandler misfireHandler = createMisfireHandler(jobStore, signaler);
+    misfireHandler = createMisfireHandler(jobStore, signaler);
 
     RecoveryTriggerFactory recoveryTriggerFactory =
         new RecoveryTriggerFactory(jobStore.getInstanceId(), clock);
@@ -107,6 +113,15 @@ public class StandardOrientDbStoreAssembler {
 
   public StandardOrientDbConnector getOrientDbConnector() {
     return orientDbConnector;
+  }
+
+  /**
+   * Get the misfire handler.
+   * 
+   * @return the misfire handler
+   */
+  public MisfireHandler getMisfireHandler() {
+    return misfireHandler;
   }
 
   public JobCompleteHandler getJobCompleteHandler() {
@@ -168,7 +183,8 @@ public class StandardOrientDbStoreAssembler {
   private CheckinExecutor createCheckinExecutor(OrientDbJobStore jobStore) {
     return null;
     // return new CheckinExecutor(new CheckinTask(schedulerDao),
-    // jobStore.getClusterCheckinIntervalMillis(), jobStore.getInstanceId());
+    // jobStore.getClusterCheckinIntervalMillis(),
+    // jobStore.getInstanceId());
   }
 
   private StandardCalendarDao createCalendarDao(OrientDbJobStore jobStore) {
@@ -185,12 +201,13 @@ public class StandardOrientDbStoreAssembler {
   }
 
   private StandardLockDao createLocksDao(OrientDbJobStore jobStore) {
-    return new StandardLockDao(this, Clock.SYSTEM_CLOCK, jobStore.getInstanceId());
+    return new StandardLockDao(this, clock, jobStore.getInstanceId());
   }
 
   private MisfireHandler createMisfireHandler(OrientDbJobStore jobStore,
       SchedulerSignaler signaler) {
-    return new MisfireHandler(calendarDao, signaler, jobStore.getMisfireThreshold(), clock);
+    return new StandardMisfireHandler(persister, triggerDao, calendarDao, jobStore.getMisfireThreshold(),
+        dbRetryInterval, orientDbConnector, clock, signaler);
   }
 
   private StandardOrientDbConnector createOrientDbConnector(OrientDbJobStore jobStore)
@@ -200,15 +217,16 @@ public class StandardOrientDbStoreAssembler {
         .withDatabaseName(jobStore.getDbName())
         /*
          * .withAuthDatabaseName(jobStore.authDbName)
-         * .withMaxConnectionsPerHost(jobStore.mongoOptionMaxConnectionsPerHost)
-         * .withConnectTimeoutMillis(jobStore.mongoOptionConnectTimeoutMillis)
-         * .withSocketTimeoutMillis(jobStore.mongoOptionSocketTimeoutMillis)
+         * .withMaxConnectionsPerHost(jobStore.
+         * mongoOptionMaxConnectionsPerHost) .withConnectTimeoutMillis(jobStore.
+         * mongoOptionConnectTimeoutMillis) .withSocketTimeoutMillis(jobStore.
+         * mongoOptionSocketTimeoutMillis)
          * .withSocketKeepAlive(jobStore.mongoOptionSocketKeepAlive)
-         * .withThreadsAllowedToBlockForConnectionMultiplier(
-         * jobStore.mongoOptionThreadsAllowedToBlockForConnectionMultiplier)
+         * .withThreadsAllowedToBlockForConnectionMultiplier( jobStore.
+         * mongoOptionThreadsAllowedToBlockForConnectionMultiplier)
          * .withSSL(jobStore.mongoOptionEnableSSL,
          * jobStore.mongoOptionSslInvalidHostNameAllowed)
-         * .withWriteTimeout(jobStore.mongoOptionWriteConcernTimeoutMillis)
+         * .withWriteTimeout(jobStore. mongoOptionWriteConcernTimeoutMillis)
          */
         .build();
   }

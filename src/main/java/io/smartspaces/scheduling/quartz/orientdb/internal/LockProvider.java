@@ -22,6 +22,12 @@ package io.smartspaces.scheduling.quartz.orientdb.internal;
  * @author Keith M. Hughes
  */
 public interface LockProvider {
+  
+
+  String LOCK_TRIGGER = "LOCK_TRIGGER";
+
+  String LOCK_STATE_ACCESS = "STATE_ACCESS";
+
 
   /**
    * Obtain the requested lock for the current thread.

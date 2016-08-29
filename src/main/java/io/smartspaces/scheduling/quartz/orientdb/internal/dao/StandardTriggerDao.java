@@ -113,7 +113,7 @@ public class StandardTriggerDao {
       LOG.debug("Looking for triggers in state {} no later than {}, no earlier than {}", state,
           noLaterThanDate, noEarlierThanDate);
     }
-    
+
     // TODO(keith): class and field names should come from external
     // constants
     // Also create query ahead of time when DAO starts.
@@ -202,6 +202,32 @@ public class StandardTriggerDao {
     List<ODocument> referencedTriggerDocs = database.command(query).execute(job.getIdentity());
 
     return referencedTriggerDocs.size() == 1;
+  }
+
+  public boolean hasMisfiredTriggersInState(String state, long misfireTime,
+      int maxMisfiresToHandleAtATime, List<TriggerKey> misfiredTriggers) {
+    // TODO(keith): class and field names should come from external
+    // constants. -1 comes from
+    // Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY
+    // Also create query ahead of time when DAO starts.
+    ODatabaseDocumentTx database = storeAssembler.getOrientDbConnector().getConnection();
+    OSQLSynchQuery<ODocument> query = new OSQLSynchQuery<ODocument>(
+        "select from Trigger where state = ? and nextFireTime < ? and misfireInstruction <> -1 order by nextFireTime asc, priority desc");
+    List<ODocument> result = database.command(query).execute(state, new Date(misfireTime));
+
+    boolean hasReachedLimit = false;
+    int count = 0;
+    for (ODocument triggerDoc : result) {
+      if (count == maxMisfiresToHandleAtATime) {
+        hasReachedLimit = true;
+        break;
+      } else {
+        misfiredTriggers.add(Keys.toTriggerKey(triggerDoc));
+        count++;
+      }
+    }
+
+    return hasReachedLimit;
   }
 
   public void insert(ODocument triggerDoc, Trigger offendingTrigger)

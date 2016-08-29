@@ -37,11 +37,10 @@ import io.smartspaces.scheduling.quartz.orientdb.internal.util.SerialUtils;
  */
 public class JobConverter {
 
+  private ClassLoadHelper classLoadHelper;
 
-  private ClassLoadHelper loadHelper;
-
-  public JobConverter(ClassLoadHelper loadHelper) {
-    this.loadHelper = loadHelper;
+  public JobConverter(ClassLoadHelper classLoadHelper) {
+    this.classLoadHelper = classLoadHelper;
   }
 
   public ODocument toDocument(JobDetail newJob, JobKey key) {
@@ -62,12 +61,13 @@ public class JobConverter {
     String jobClassName = doc.field(Constants.JOB_CLASS);
     try {
       // Make it possible for subclasses to use custom class loaders.
-      // When Quartz jobs are implemented as Clojure records, the only way to
+      // When Quartz jobs are implemented as Clojure records, the only way
+      // to
       // use
       // them without switching to gen-class is by using a
       // clojure.lang.DynamicClassLoader instance.
       @SuppressWarnings("unchecked")
-      Class<Job> jobClass = (Class<Job>) loadHelper.getClassLoader().loadClass(jobClassName);
+      Class<Job> jobClass = (Class<Job>) classLoadHelper.loadClass(jobClassName);
 
       JobBuilder builder = createJobBuilder(doc, jobClass);
       withDurability(doc, builder);
@@ -89,9 +89,10 @@ public class JobConverter {
       jobData.putAll(SerialUtils.deserialize(jobData, jobDataString));
     } else {
       for (String key : doc.fieldNames()) {
-        if (!key.equals(Constants.KEY_NAME) && !key.equals(Constants.KEY_GROUP) && !key.equals(Constants.JOB_CLASS)
-            && !key.equals(Constants.JOB_DESCRIPTION) && !key.equals(Constants.JOB_DURABILITY)
-            && !key.equals(Constants.JOB_REQUESTS_RECOVERY) && !key.equals("_id")) {
+        if (!key.equals(Constants.KEY_NAME) && !key.equals(Constants.KEY_GROUP)
+            && !key.equals(Constants.JOB_CLASS) && !key.equals(Constants.JOB_DESCRIPTION)
+            && !key.equals(Constants.JOB_DURABILITY) && !key.equals(Constants.JOB_REQUESTS_RECOVERY)
+            && !key.equals("_id")) {
           jobData.put(key, doc.field(key));
         }
       }
@@ -109,8 +110,8 @@ public class JobConverter {
       } else if (jobDurability instanceof String) {
         builder.storeDurably(Boolean.valueOf((String) jobDurability));
       } else {
-        throw new JobPersistenceException("Illegal value for " + Constants.JOB_DURABILITY + ", class "
-            + jobDurability.getClass() + " not supported");
+        throw new JobPersistenceException("Illegal value for " + Constants.JOB_DURABILITY
+            + ", class " + jobDurability.getClass() + " not supported");
       }
     }
   }

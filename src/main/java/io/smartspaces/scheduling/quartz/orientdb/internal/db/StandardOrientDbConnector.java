@@ -40,13 +40,13 @@ import org.slf4j.LoggerFactory;
  * The responsibility of this class is create an OrientDB connection with given
  * parameters.
  */
-public class StandardOrientDbConnector {
+public class StandardOrientDbConnector implements OrientDbConnector {
 
   public static OrientDbConnectorBuilder builder() {
     return new OrientDbConnectorBuilder();
   }
 
-  private static final Logger log = LoggerFactory.getLogger(StandardOrientDbConnector.class);
+  private static final Logger LOG = LoggerFactory.getLogger(StandardOrientDbConnector.class);
 
   /**
    * The pool of database connections.
@@ -76,6 +76,7 @@ public class StandardOrientDbConnector {
     // use the builder
   }
 
+  @Override
   public void shutdown() {
     pool.close();
   }
@@ -89,48 +90,18 @@ public class StandardOrientDbConnector {
     return pool.acquire();
   }
 
-  /**
-   * Get the connection to the database.
-   * 
-   * <p>
-   * The first time the connection is obtained in a thread, a transaction will
-   * be started.
-   * 
-   * @return the connection
-   */
+   @Override
   public ODatabaseDocumentTx getConnection() {
     return documentProvider.get();
   }
 
-  /**
-   * Do a method in a transaction without a lock.
-   * 
-   * @param method
-   *          the method to run in the transaction
-   * 
-   * @return the result of the method
-   * 
-   * @throws JobPersistenceException
-   *           something bad happened
-   */
+   @Override
   public <T> T doInTransactionWithoutLock(TransactionMethod<T> method)
       throws JobPersistenceException {
     return doInTransaction(null, method);
   }
 
-  /**
-   * Do a method in a transaction.
-   * 
-   * @param lockRequired
-   *          the name of the lock required
-   * @param method
-   *          the method to run in the transaction
-   * 
-   * @return the result of the method
-   * 
-   * @throws JobPersistenceException
-   *           something bad happened
-   */
+  @Override
   public <T> T doInTransaction(String lockRequired, TransactionMethod<T> method)
       throws JobPersistenceException {
     ODatabaseDocumentTx db = getConnection();
@@ -149,13 +120,13 @@ public class StandardOrientDbConnector {
     } catch (JobPersistenceException e) {
       db.rollback();
 
-      log.error("transaction failed due to JobPersistenceException", e);
+      LOG.error("transaction failed due to JobPersistenceException", e);
 
       throw e;
     } catch (Throwable e) {
       db.rollback();
 
-      log.error("transaction failed due to Throwable", e);
+      LOG.error("transaction failed due to Throwable", e);
 
       throw new JobPersistenceException("Transaction failed", e);
     } finally {
@@ -172,13 +143,9 @@ public class StandardOrientDbConnector {
       try {
         lockProvider.releaseLock(lockName);
       } catch (LockException le) {
-        log.error("Error returning lock", le);
+        LOG.error("Error returning lock", le);
       }
     }
-  }
-
-  public interface TransactionMethod<T> {
-    T doInTransaction() throws JobPersistenceException;
   }
 
   public static class OrientDbConnectorBuilder {

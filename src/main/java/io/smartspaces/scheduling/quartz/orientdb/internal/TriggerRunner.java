@@ -245,7 +245,7 @@ public class TriggerRunner {
     Calendar cal = null;
     String calName = trigger.getCalendarName();
     if (calName != null) {
-      cal = calendarDao.retrieveCalendar(calName);
+      cal = calendarDao.getCalendar(calName);
       if (cal == null) {
         return null;
       }

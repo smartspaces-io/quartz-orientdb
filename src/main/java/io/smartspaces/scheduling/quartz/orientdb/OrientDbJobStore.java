@@ -28,10 +28,11 @@
 package io.smartspaces.scheduling.quartz.orientdb;
 
 import io.smartspaces.scheduling.quartz.orientdb.internal.Constants;
+import io.smartspaces.scheduling.quartz.orientdb.internal.LockProvider;
 import io.smartspaces.scheduling.quartz.orientdb.internal.StandardOrientDbStoreAssembler;
 import io.smartspaces.scheduling.quartz.orientdb.internal.cluster.CheckinExecutor;
-import io.smartspaces.scheduling.quartz.orientdb.internal.db.StandardOrientDbConnector;
-import io.smartspaces.scheduling.quartz.orientdb.internal.db.StandardOrientDbConnector.TransactionMethod;
+import io.smartspaces.scheduling.quartz.orientdb.internal.db.OrientDbConnector;
+import io.smartspaces.scheduling.quartz.orientdb.internal.db.OrientDbConnector.TransactionMethod;
 import io.smartspaces.scheduling.quartz.orientdb.internal.util.Clock;
 
 import org.quartz.Calendar;
@@ -58,6 +59,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 /**
  * The Quartz Job Store that uses OrientDB.
@@ -65,10 +68,6 @@ import java.util.Set;
 public class OrientDbJobStore implements JobStore {
 
   private static final Logger LOG = LoggerFactory.getLogger(OrientDbJobStore.class);
-
-  private static final String LOCK_TRIGGER = "LOCK_TRIGGER";
-
-  private static final String LOCK_STATE_ACCESS = "STATE_ACCESS";
 
   private String collectionPrefix = "quartz_";
   private String dbName;
@@ -85,8 +84,15 @@ public class OrientDbJobStore implements JobStore {
   private long misfireThreshold = 60000;
   private long triggerTimeoutMillis = 10 * 60 * 1000L;
   private long jobTimeoutMillis = 10 * 60 * 1000L;
-  
+
+  /**
+   * The internal in milliseconds for retrying
+   */
+  private long dbRetryInterval = 15000L; // 15 secs
+
   private Clock clock = Clock.SYSTEM_CLOCK;
+
+  private ScheduledExecutorService executorService = Executors.newScheduledThreadPool(4);
 
   /**
    * The assembler for the job store.
@@ -117,9 +123,9 @@ public class OrientDbJobStore implements JobStore {
   }
 
   @Override
-  public void initialize(ClassLoadHelper loadHelper, SchedulerSignaler signaler)
+  public void initialize(ClassLoadHelper loadHelper, SchedulerSignaler schedulerSignaler)
       throws SchedulerConfigException {
-    assembler.build(this, loadHelper, signaler, clock);
+    assembler.build(this, loadHelper, schedulerSignaler, clock, dbRetryInterval);
 
     try {
       assembler.getOrientDbConnector().doInTransactionWithoutLock(new TransactionMethod<Void>() {
@@ -149,7 +155,7 @@ public class OrientDbJobStore implements JobStore {
     } else {
       try {
         // Should look for misfires
-        //assembler.getLocksDao().removeAllInstanceLocks();
+        // assembler.getLocksDao().removeAllInstanceLocks();
       } catch (Exception e) {
         throw new JobPersistenceException("Fail",
             new SchedulerConfigException("Cannot remove instance locks", e));
@@ -160,7 +166,13 @@ public class OrientDbJobStore implements JobStore {
   @Override
   public void schedulerStarted() throws SchedulerException {
     LOG.info("scheduler started");
-    // No-op
+
+    executorService.execute(new Runnable() {
+      @Override
+      public void run() {
+        assembler.getMisfireHandler().scanForMisfires();
+      }
+    });
   }
 
   @Override
@@ -181,7 +193,10 @@ public class OrientDbJobStore implements JobStore {
       if (checkinExecutor != null) {
         checkinExecutor.shutdown();
       }
-      StandardOrientDbConnector orientDbConnector = assembler.getOrientDbConnector();
+      
+      assembler.getMisfireHandler().shutdownScanForMisfires();
+      
+      OrientDbConnector orientDbConnector = assembler.getOrientDbConnector();
       if (orientDbConnector != null) {
         orientDbConnector.shutdown();
       }
@@ -208,8 +223,8 @@ public class OrientDbJobStore implements JobStore {
   public void storeJob(final JobDetail newJob, final boolean replaceExisting)
       throws JobPersistenceException {
     LOG.debug("Adding job {} with replace={}", newJob, replaceExisting);
-    assembler.getOrientDbConnector().doInTransaction(replaceExisting ? LOCK_TRIGGER : null,
-        new TransactionMethod<Void>() {
+    assembler.getOrientDbConnector().doInTransaction(
+        replaceExisting ? LockProvider.LOCK_TRIGGER : null, new TransactionMethod<Void>() {
           @Override
           public Void doInTransaction() throws JobPersistenceException {
             assembler.getJobDao().storeJob(newJob, replaceExisting);
@@ -243,7 +258,7 @@ public class OrientDbJobStore implements JobStore {
   public boolean removeJob(final JobKey jobKey) throws JobPersistenceException {
     LOG.debug("Removing job {}", jobKey);
     return assembler.getOrientDbConnector()
-        .doInTransaction(LOCK_TRIGGER, new TransactionMethod<Boolean>() {
+        .doInTransaction(LockProvider.LOCK_TRIGGER, new TransactionMethod<Boolean>() {
           @Override
           public Boolean doInTransaction() throws JobPersistenceException {
             return assembler.getPersister().removeJob(jobKey);
@@ -255,7 +270,7 @@ public class OrientDbJobStore implements JobStore {
   public boolean removeJobs(final List<JobKey> jobKeys) throws JobPersistenceException {
     LOG.debug("Removing jobs {}", jobKeys);
     return assembler.getOrientDbConnector()
-        .doInTransaction(LOCK_TRIGGER, new TransactionMethod<Boolean>() {
+        .doInTransaction(LockProvider.LOCK_TRIGGER, new TransactionMethod<Boolean>() {
           @Override
           public Boolean doInTransaction() throws JobPersistenceException {
             return assembler.getPersister().removeJobs(jobKeys);
@@ -279,8 +294,8 @@ public class OrientDbJobStore implements JobStore {
   public void storeTrigger(final OperableTrigger newTrigger, final boolean replaceExisting)
       throws JobPersistenceException {
     LOG.debug("Store trigger {} with replace", newTrigger, replaceExisting);
-    assembler.getOrientDbConnector().doInTransaction(replaceExisting ? LOCK_TRIGGER : null,
-        new TransactionMethod<Void>() {
+    assembler.getOrientDbConnector().doInTransaction(
+        replaceExisting ? LockProvider.LOCK_TRIGGER : null, new TransactionMethod<Void>() {
           @Override
           public Void doInTransaction() throws JobPersistenceException {
             assembler.getPersister().storeTrigger(newTrigger, Constants.STATE_WAITING,
@@ -295,7 +310,7 @@ public class OrientDbJobStore implements JobStore {
   public boolean removeTrigger(final TriggerKey triggerKey) throws JobPersistenceException {
     LOG.debug("Removing trigger {}", triggerKey);
     return assembler.getOrientDbConnector()
-        .doInTransaction(LOCK_TRIGGER, new TransactionMethod<Boolean>() {
+        .doInTransaction(LockProvider.LOCK_TRIGGER, new TransactionMethod<Boolean>() {
           @Override
           public Boolean doInTransaction() throws JobPersistenceException {
             return assembler.getPersister().removeTrigger(triggerKey);
@@ -307,7 +322,7 @@ public class OrientDbJobStore implements JobStore {
   public boolean removeTriggers(final List<TriggerKey> triggerKeys) throws JobPersistenceException {
     LOG.debug("Removing triggers {}", triggerKeys);
     return assembler.getOrientDbConnector()
-        .doInTransaction(LOCK_TRIGGER, new TransactionMethod<Boolean>() {
+        .doInTransaction(LockProvider.LOCK_TRIGGER, new TransactionMethod<Boolean>() {
           @Override
           public Boolean doInTransaction() throws JobPersistenceException {
             return assembler.getPersister().removeTriggers(triggerKeys);
@@ -320,7 +335,7 @@ public class OrientDbJobStore implements JobStore {
       throws JobPersistenceException {
     LOG.debug("Replacing trigger {} with {}", triggerKey, newTrigger);
     return assembler.getOrientDbConnector()
-        .doInTransaction(LOCK_TRIGGER, new TransactionMethod<Boolean>() {
+        .doInTransaction(LockProvider.LOCK_TRIGGER, new TransactionMethod<Boolean>() {
           @Override
           public Boolean doInTransaction() throws JobPersistenceException {
             return assembler.getPersister().replaceTrigger(triggerKey, newTrigger,
@@ -369,18 +384,19 @@ public class OrientDbJobStore implements JobStore {
   @Override
   public void clearAllSchedulingData() throws JobPersistenceException {
     LOG.debug("Clearing all scheduling data");
-    assembler.getOrientDbConnector().doInTransaction(LOCK_TRIGGER, new TransactionMethod<Void>() {
-      @Override
-      public Void doInTransaction() throws JobPersistenceException {
-        assembler.getJobDao().removeAll();
-        assembler.getTriggerDao().removeAll();
-        assembler.getCalendarDao().removeAll();
-        assembler.getPausedJobGroupsDao().removeAll();
-        assembler.getPausedTriggerGroupsDao().removeAll();
+    assembler.getOrientDbConnector().doInTransaction(LockProvider.LOCK_TRIGGER,
+        new TransactionMethod<Void>() {
+          @Override
+          public Void doInTransaction() throws JobPersistenceException {
+            assembler.getJobDao().removeAll();
+            assembler.getTriggerDao().removeAll();
+            assembler.getCalendarDao().removeAll();
+            assembler.getPausedJobGroupsDao().removeAll();
+            assembler.getPausedTriggerGroupsDao().removeAll();
 
-        return null;
-      }
-    });
+            return null;
+          }
+        });
   }
 
   @Override
@@ -392,8 +408,8 @@ public class OrientDbJobStore implements JobStore {
       throw new UnsupportedOperationException("Updating triggers is not supported.");
     }
 
-    assembler.getOrientDbConnector().doInTransaction(updateTriggers ? LOCK_TRIGGER : null,
-        new TransactionMethod<Void>() {
+    assembler.getOrientDbConnector().doInTransaction(
+        updateTriggers ? LockProvider.LOCK_TRIGGER : null, new TransactionMethod<Void>() {
           @Override
           public Void doInTransaction() throws JobPersistenceException {
             assembler.getCalendarDao().store(name, calendar);
@@ -407,7 +423,7 @@ public class OrientDbJobStore implements JobStore {
   public boolean removeCalendar(final String calName) throws JobPersistenceException {
     LOG.debug("Remove calendar {}", calName);
     return assembler.getOrientDbConnector()
-        .doInTransaction(LOCK_TRIGGER, new TransactionMethod<Boolean>() {
+        .doInTransaction(LockProvider.LOCK_TRIGGER, new TransactionMethod<Boolean>() {
           @Override
           public Boolean doInTransaction() throws JobPersistenceException {
             return assembler.getCalendarDao().remove(calName);
@@ -423,7 +439,7 @@ public class OrientDbJobStore implements JobStore {
         .doInTransactionWithoutLock(new TransactionMethod<Calendar>() {
           @Override
           public Calendar doInTransaction() throws JobPersistenceException {
-            return assembler.getCalendarDao().retrieveCalendar(calName);
+            return assembler.getCalendarDao().getCalendar(calName);
           }
         });
   }
@@ -547,21 +563,22 @@ public class OrientDbJobStore implements JobStore {
   @Override
   public void pauseTrigger(final TriggerKey triggerKey) throws JobPersistenceException {
     LOG.debug("Pause trigger {}", triggerKey);
-    assembler.getOrientDbConnector().doInTransaction(LOCK_TRIGGER, new TransactionMethod<Void>() {
-      @Override
-      public Void doInTransaction() throws JobPersistenceException {
-        assembler.getTriggerStateManager().pause(triggerKey);
+    assembler.getOrientDbConnector().doInTransaction(LockProvider.LOCK_TRIGGER,
+        new TransactionMethod<Void>() {
+          @Override
+          public Void doInTransaction() throws JobPersistenceException {
+            assembler.getTriggerStateManager().pause(triggerKey);
 
-        return null;
-      }
-    });
+            return null;
+          }
+        });
   }
 
   @Override
   public Collection<String> pauseTriggers(final GroupMatcher<TriggerKey> matcher)
       throws JobPersistenceException {
     LOG.debug("Pause triggers matching {}", matcher);
-    return assembler.getOrientDbConnector().doInTransaction(LOCK_TRIGGER,
+    return assembler.getOrientDbConnector().doInTransaction(LockProvider.LOCK_TRIGGER,
         new TransactionMethod<Collection<String>>() {
           @Override
           public Collection<String> doInTransaction() throws JobPersistenceException {
@@ -573,21 +590,22 @@ public class OrientDbJobStore implements JobStore {
   @Override
   public void resumeTrigger(final TriggerKey triggerKey) throws JobPersistenceException {
     LOG.debug("Resume trigger {}", triggerKey);
-    assembler.getOrientDbConnector().doInTransaction(LOCK_TRIGGER, new TransactionMethod<Void>() {
-      @Override
-      public Void doInTransaction() throws JobPersistenceException {
-        assembler.getTriggerStateManager().resume(triggerKey);
+    assembler.getOrientDbConnector().doInTransaction(LockProvider.LOCK_TRIGGER,
+        new TransactionMethod<Void>() {
+          @Override
+          public Void doInTransaction() throws JobPersistenceException {
+            assembler.getTriggerStateManager().resume(triggerKey);
 
-        return null;
-      }
-    });
+            return null;
+          }
+        });
   }
 
   @Override
   public Collection<String> resumeTriggers(final GroupMatcher<TriggerKey> matcher)
       throws JobPersistenceException {
     LOG.debug("Resume triggers matching {}", matcher);
-    return assembler.getOrientDbConnector().doInTransaction(LOCK_TRIGGER,
+    return assembler.getOrientDbConnector().doInTransaction(LockProvider.LOCK_TRIGGER,
         new TransactionMethod<Collection<String>>() {
           @Override
           public Collection<String> doInTransaction() throws JobPersistenceException {
@@ -611,47 +629,50 @@ public class OrientDbJobStore implements JobStore {
   @Override
   public void pauseAll() throws JobPersistenceException {
     LOG.debug("Pause all");
-    assembler.getOrientDbConnector().doInTransaction(LOCK_TRIGGER, new TransactionMethod<Void>() {
-      @Override
-      public Void doInTransaction() throws JobPersistenceException {
-        assembler.getTriggerStateManager().pauseAll();
+    assembler.getOrientDbConnector().doInTransaction(LockProvider.LOCK_TRIGGER,
+        new TransactionMethod<Void>() {
+          @Override
+          public Void doInTransaction() throws JobPersistenceException {
+            assembler.getTriggerStateManager().pauseAll();
 
-        return null;
-      }
-    });
+            return null;
+          }
+        });
   }
 
   @Override
   public void resumeAll() throws JobPersistenceException {
     LOG.debug("Resume all");
-    assembler.getOrientDbConnector().doInTransaction(LOCK_TRIGGER, new TransactionMethod<Void>() {
-      @Override
-      public Void doInTransaction() throws JobPersistenceException {
-        assembler.getTriggerStateManager().resumeAll();
+    assembler.getOrientDbConnector().doInTransaction(LockProvider.LOCK_TRIGGER,
+        new TransactionMethod<Void>() {
+          @Override
+          public Void doInTransaction() throws JobPersistenceException {
+            assembler.getTriggerStateManager().resumeAll();
 
-        return null;
-      }
-    });
+            return null;
+          }
+        });
   }
 
   @Override
   public void pauseJob(final JobKey jobKey) throws JobPersistenceException {
     LOG.debug("Pause job {}", jobKey);
-    assembler.getOrientDbConnector().doInTransaction(LOCK_TRIGGER, new TransactionMethod<Void>() {
-      @Override
-      public Void doInTransaction() throws JobPersistenceException {
-        assembler.getTriggerStateManager().pauseJob(jobKey);
+    assembler.getOrientDbConnector().doInTransaction(LockProvider.LOCK_TRIGGER,
+        new TransactionMethod<Void>() {
+          @Override
+          public Void doInTransaction() throws JobPersistenceException {
+            assembler.getTriggerStateManager().pauseJob(jobKey);
 
-        return null;
-      }
-    });
+            return null;
+          }
+        });
   }
 
   @Override
   public Collection<String> pauseJobs(final GroupMatcher<JobKey> groupMatcher)
       throws JobPersistenceException {
     LOG.debug("Pause jobs matching {}", groupMatcher);
-    return assembler.getOrientDbConnector().doInTransaction(LOCK_TRIGGER,
+    return assembler.getOrientDbConnector().doInTransaction(LockProvider.LOCK_TRIGGER,
         new TransactionMethod<Collection<String>>() {
           @Override
           public Collection<String> doInTransaction() throws JobPersistenceException {
@@ -663,21 +684,22 @@ public class OrientDbJobStore implements JobStore {
   @Override
   public void resumeJob(final JobKey jobKey) throws JobPersistenceException {
     LOG.debug("Resume job {}", jobKey);
-    assembler.getOrientDbConnector().doInTransaction(LOCK_TRIGGER, new TransactionMethod<Void>() {
-      @Override
-      public Void doInTransaction() throws JobPersistenceException {
-        assembler.getTriggerStateManager().resumeJob(jobKey);
+    assembler.getOrientDbConnector().doInTransaction(LockProvider.LOCK_TRIGGER,
+        new TransactionMethod<Void>() {
+          @Override
+          public Void doInTransaction() throws JobPersistenceException {
+            assembler.getTriggerStateManager().resumeJob(jobKey);
 
-        return null;
-      }
-    });
+            return null;
+          }
+        });
   }
 
   @Override
   public Collection<String> resumeJobs(final GroupMatcher<JobKey> groupMatcher)
       throws JobPersistenceException {
     LOG.debug("Resume jobs matching job {}", groupMatcher);
-    return assembler.getOrientDbConnector().doInTransaction(LOCK_TRIGGER,
+    return assembler.getOrientDbConnector().doInTransaction(LockProvider.LOCK_TRIGGER,
         new TransactionMethod<Collection<String>>() {
           @Override
           public Collection<String> doInTransaction() throws JobPersistenceException {
@@ -692,7 +714,7 @@ public class OrientDbJobStore implements JobStore {
     LOG.info("Acquiring next triggers for {} ({}) maxcount {}, timeWindow {}", noLaterThan,
         new Date(noLaterThan), maxCount, timeWindow);
 
-    return assembler.getOrientDbConnector().doInTransaction(LOCK_TRIGGER,
+    return assembler.getOrientDbConnector().doInTransaction(LockProvider.LOCK_TRIGGER,
         new TransactionMethod<List<OperableTrigger>>() {
           @Override
           public List<OperableTrigger> doInTransaction() throws JobPersistenceException {
@@ -704,21 +726,22 @@ public class OrientDbJobStore implements JobStore {
   @Override
   public void releaseAcquiredTrigger(final OperableTrigger trigger) throws JobPersistenceException {
     LOG.info("Releasing acquired trigger {}", trigger);
-    assembler.getOrientDbConnector().doInTransaction(LOCK_TRIGGER, new TransactionMethod<Void>() {
-      @Override
-      public Void doInTransaction() throws JobPersistenceException {
-        assembler.getTriggerStateManager().releaseAcquiredTrigger(trigger);
+    assembler.getOrientDbConnector().doInTransaction(LockProvider.LOCK_TRIGGER,
+        new TransactionMethod<Void>() {
+          @Override
+          public Void doInTransaction() throws JobPersistenceException {
+            assembler.getTriggerStateManager().releaseAcquiredTrigger(trigger);
 
-        return null;
-      }
-    });
+            return null;
+          }
+        });
   }
 
   @Override
   public List<TriggerFiredResult> triggersFired(final List<OperableTrigger> triggers)
       throws JobPersistenceException {
     LOG.info("Triggers fired {}", triggers);
-    return assembler.getOrientDbConnector().doInTransaction(LOCK_TRIGGER,
+    return assembler.getOrientDbConnector().doInTransaction(LockProvider.LOCK_TRIGGER,
         new TransactionMethod<List<TriggerFiredResult>>() {
           @Override
           public List<TriggerFiredResult> doInTransaction() throws JobPersistenceException {
@@ -732,14 +755,15 @@ public class OrientDbJobStore implements JobStore {
       final CompletedExecutionInstruction triggerInstCode) throws JobPersistenceException {
     LOG.info("Triggered job complete {} for job {} with instruction {}", trigger, job,
         triggerInstCode);
-    assembler.getOrientDbConnector().doInTransaction(LOCK_TRIGGER, new TransactionMethod<Void>() {
-      @Override
-      public Void doInTransaction() throws JobPersistenceException {
-        assembler.getJobCompleteHandler().jobComplete(trigger, job, triggerInstCode);
+    assembler.getOrientDbConnector().doInTransaction(LockProvider.LOCK_TRIGGER,
+        new TransactionMethod<Void>() {
+          @Override
+          public Void doInTransaction() throws JobPersistenceException {
+            assembler.getJobCompleteHandler().jobComplete(trigger, job, triggerInstCode);
 
-        return null;
-      }
-    });
+            return null;
+          }
+        });
   }
 
   @Override
@@ -844,5 +868,21 @@ public class OrientDbJobStore implements JobStore {
 
   public void setClock(Clock clock) {
     this.clock = clock;
+  }
+
+  public long getDbRetryInterval() {
+    return dbRetryInterval;
+  }
+
+  public void setDbRetryInterval(long dbRetryInterval) {
+    this.dbRetryInterval = dbRetryInterval;
+  }
+
+  public ScheduledExecutorService getExecutorService() {
+    return executorService;
+  }
+
+  public void setExecutorService(ScheduledExecutorService executorService) {
+    this.executorService = executorService;
   }
 }

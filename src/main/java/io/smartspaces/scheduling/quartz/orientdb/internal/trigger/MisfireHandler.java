@@ -1,97 +1,64 @@
+/*
+ * Copyright (C) 2016 Keith M. Hughes
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package io.smartspaces.scheduling.quartz.orientdb.internal.trigger;
 
-import io.smartspaces.scheduling.quartz.orientdb.internal.dao.StandardCalendarDao;
-import io.smartspaces.scheduling.quartz.orientdb.internal.util.Clock;
-
-import org.quartz.Calendar;
 import org.quartz.JobPersistenceException;
-import org.quartz.Trigger;
+import org.quartz.TriggerKey;
 import org.quartz.spi.OperableTrigger;
-import org.quartz.spi.SchedulerSignaler;
-
-import java.util.Date;
 
 /**
- * The responsibility of this class is to handle misfires.
+ * The handler for misfires.
+ * 
+ * @author Keith M. Hughes
  */
-public class MisfireHandler {
-
-  private final StandardCalendarDao calendarDao;
-  private final SchedulerSignaler signaler;
-  private final long misfireThreshold;
-  private final Clock clock;
-
-  public MisfireHandler(StandardCalendarDao calendarDao, SchedulerSignaler signaler,
-      long misfireThreshold, Clock clock) {
-    this.calendarDao = calendarDao;
-    this.signaler = signaler;
-    this.misfireThreshold = misfireThreshold;
-    this.clock = clock;
-  }
+public interface MisfireHandler {
 
   /**
-   * Return true when misfire have been applied and trigger has next fire time.
+   * Apply a misfire when recovering a trigger.
    *
    * @param trigger
    *          on which apply misfire logic
-   *          
+   * 
    * @return {@code true} when result of misfire is next fire time
    */
-  public boolean applyMisfireOnRecovery(OperableTrigger trigger) throws JobPersistenceException {
-    if (trigger.getMisfireInstruction() == Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY) {
-      return false;
-    }
+  boolean applyMisfireOnRecovery(OperableTrigger trigger) throws JobPersistenceException;
 
-    Calendar cal = null;
-    if (trigger.getCalendarName() != null) {
-      cal = retrieveCalendar(trigger);
-    }
+  boolean applyMisfire(OperableTrigger trigger) throws JobPersistenceException;
 
-    signaler.notifyTriggerListenersMisfired(trigger);
+  /**
+   * Calculate the earliest time in the past that a trigger will not be
+   * considered misfired.
+   * 
+   * @return the earliest time for non-misfired classes
+   */
+  long getMisfireTime();
 
-    trigger.updateAfterMisfire(cal);
+  /**
+   * Scan for misfires.
+   * 
+   * <p>
+   * This is a long running method and should be running inside its own thread.
+   */
+  void scanForMisfires();
 
-    return trigger.getNextFireTime() != null;
-  }
+  /**
+   * Shutdown the misfire scan.
+   */
+  void shutdownScanForMisfires();
 
-  public boolean applyMisfire(OperableTrigger trigger) throws JobPersistenceException {
-    Date fireTime = trigger.getNextFireTime();
-    if (misfireIsNotApplicable(trigger, fireTime)) {
-      return false;
-    }
-
-    org.quartz.Calendar cal = retrieveCalendar(trigger);
-
-    signaler.notifyTriggerListenersMisfired((OperableTrigger) trigger.clone());
-
-    trigger.updateAfterMisfire(cal);
-
-    if (trigger.getNextFireTime() == null) {
-      signaler.notifySchedulerListenersFinalized(trigger);
-    } else if (fireTime.equals(trigger.getNextFireTime())) {
-      return false;
-    }
-    return true;
-  }
-
-  public long getMisfireTime() {
-    long misfireTime = clock.millis();
-    if (misfireThreshold > 0) {
-      misfireTime -= misfireThreshold;
-    }
-    return misfireTime;
-  }
-
-  private boolean misfireIsNotApplicable(OperableTrigger trigger, Date fireTime) {
-    return fireTime == null || isNotMisfired(fireTime)
-        || trigger.getMisfireInstruction() == Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY;
-  }
-
-  private boolean isNotMisfired(Date fireTime) {
-    return getMisfireTime() < fireTime.getTime();
-  }
-
-  private Calendar retrieveCalendar(OperableTrigger trigger) throws JobPersistenceException {
-    return calendarDao.retrieveCalendar(trigger.getCalendarName());
-  }
+  boolean updateMisfiredTrigger(TriggerKey triggerKey, String newStateIfNotComplete,
+      boolean forceState) throws JobPersistenceException;
 }
