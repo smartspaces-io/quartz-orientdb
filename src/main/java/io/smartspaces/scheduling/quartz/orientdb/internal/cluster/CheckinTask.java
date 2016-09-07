@@ -43,7 +43,7 @@ public class CheckinTask implements Runnable {
   @Override
   public void run() {
     // TODO(keith): When this is real, it needs to run in a transaction.
-    log.info("Node {}:{} checks-in.", schedulerDao.schedulerName, schedulerDao.instanceId);
+    log.debug("Node {}:{} checks-in.", schedulerDao.schedulerName, schedulerDao.instanceId);
     try {
       schedulerDao.checkIn();
     } catch (Exception e) {

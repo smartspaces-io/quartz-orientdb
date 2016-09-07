@@ -172,7 +172,7 @@ public class StandardLockDao {
    * @return {@code false} when not found or caught an exception
    */
   public boolean relock(TriggerKey key, Date lockTime) {
-    log.info("Relocking lock {} to {}", key, lockTime);
+    log.debug("Relocking lock {} to {}", key, lockTime);
     try {
       // TODO(keith): class and field names should come from external
       // constants
@@ -185,7 +185,7 @@ public class StandardLockDao {
 
       if (!result.isEmpty()) {
         ODocument lockDoc = result.get(0);
-        log.info("Relocked lock {} to {}", lockDoc, lockTime);
+        log.debug("Relocked lock {} to {}", lockDoc, lockTime);
         lockDoc.field(Constants.LOCK_TIME, clock.now());
         lockDoc.save();
       }
@@ -320,7 +320,7 @@ public class StandardLockDao {
     lockDoc.field(Constants.LOCK_INSTANCE_ID, instanceId);
     lockDoc.field(Constants.LOCK_TIME, lockTime);
     
-    log.info("Created lock document {}", lockDoc);
+    log.debug("Created lock document {}", lockDoc);
     return lockDoc;
   }
 

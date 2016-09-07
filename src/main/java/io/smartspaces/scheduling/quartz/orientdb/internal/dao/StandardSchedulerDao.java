@@ -89,7 +89,7 @@ public class StandardSchedulerDao {
       log.debug("Returning scheduler instance '{}' with last checkin time: {}",
           scheduler.getInstanceId(), scheduler.getLastCheckinTime());
     } else {
-      log.info("Scheduler instance '{}' not found.", instanceId);
+      log.debug("Scheduler instance '{}' not found.", instanceId);
     }
     return scheduler;
   }
@@ -132,7 +132,7 @@ public class StandardSchedulerDao {
    * @return when removed successfully
    */
   public boolean remove(String instanceId, long lastCheckinTime) {
-    log.info("Removing scheduler: {},{},{}", schedulerName, instanceId, lastCheckinTime);
+    log.debug("Removing scheduler: {},{},{}", schedulerName, instanceId, lastCheckinTime);
 
     List<ODocument> schedulerCollection =
         createSchedulerFilter(schedulerName, instanceId, lastCheckinTime);
@@ -140,7 +140,7 @@ public class StandardSchedulerDao {
       schedulerDoc.delete();
     }
 
-    log.info("Result of removing scheduler ({},{},{}):", schedulerName, instanceId,
+    log.debug("Result of removing scheduler ({},{},{}):", schedulerName, instanceId,
         lastCheckinTime);
     return !schedulerCollection.isEmpty();
   }

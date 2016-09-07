@@ -192,7 +192,7 @@ public class StandardOrientDbStoreAssembler {
   }
 
   private StandardJobDao createJobDao(OrientDbJobStore jobStore, ClassLoadHelper loadHelper) {
-    JobConverter jobConverter = new JobConverter(jobStore.getClassLoaderHelper(loadHelper));
+    JobConverter jobConverter = new JobConverter(loadHelper);
     return new StandardJobDao(this, queryHelper, jobConverter);
   }
 

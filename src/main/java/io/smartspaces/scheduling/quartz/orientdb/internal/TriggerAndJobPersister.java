@@ -110,7 +110,7 @@ public class TriggerAndJobPersister {
    */
   public boolean removeTriggerWithoutNextFireTime(OperableTrigger trigger) {
     if (trigger.getNextFireTime() == null) {
-      LOG.info("Removing trigger {} as it has no next fire time.", trigger.getKey());
+      LOG.debug("Removing trigger {} as it has no next fire time.", trigger.getKey());
       removeTrigger(trigger.getKey());
       return true;
     }

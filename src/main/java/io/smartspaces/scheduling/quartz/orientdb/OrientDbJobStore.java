@@ -28,6 +28,7 @@
 package io.smartspaces.scheduling.quartz.orientdb;
 
 import io.smartspaces.scheduling.quartz.orientdb.internal.Constants;
+import io.smartspaces.scheduling.quartz.orientdb.internal.InternalClassLoaderHelper;
 import io.smartspaces.scheduling.quartz.orientdb.internal.LockProvider;
 import io.smartspaces.scheduling.quartz.orientdb.internal.StandardOrientDbStoreAssembler;
 import io.smartspaces.scheduling.quartz.orientdb.internal.cluster.CheckinExecutor;
@@ -77,6 +78,8 @@ public class OrientDbJobStore implements JobStore {
   private String orientDbUri;
   private String username = "sooperdooper";
   private String password = "sooperdooper";
+  
+  private ClassLoader externalClassLoader;
 
   /**
    * The threshold for detecting misfires.
@@ -116,16 +119,23 @@ public class OrientDbJobStore implements JobStore {
    * 
    * @param original
    *          default provided by Quartz
-   * @return loader to use for loading of Quartz Jobs' classes
+   *          
+   * @return loader to use for loading of Quartz Jobs classes
    */
-  public ClassLoadHelper getClassLoaderHelper(ClassLoadHelper original) {
-    return original;
+  private ClassLoadHelper getClassLoaderHelper(ClassLoadHelper original) {
+    ClassLoadHelper retval = original;
+    
+    if (externalClassLoader != null) {
+      retval = new InternalClassLoaderHelper(externalClassLoader, original);
+    }
+    
+    return retval;
   }
 
   @Override
   public void initialize(ClassLoadHelper loadHelper, SchedulerSignaler schedulerSignaler)
       throws SchedulerConfigException {
-    assembler.build(this, loadHelper, schedulerSignaler, clock, dbRetryInterval);
+    assembler.build(this, getClassLoaderHelper(loadHelper), schedulerSignaler, clock, dbRetryInterval);
 
     try {
       assembler.getOrientDbConnector().doInTransactionWithoutLock(new TransactionMethod<Void>() {
@@ -165,7 +175,7 @@ public class OrientDbJobStore implements JobStore {
 
   @Override
   public void schedulerStarted() throws SchedulerException {
-    LOG.info("scheduler started");
+    LOG.debug("scheduler started");
 
     executorService.execute(new Runnable() {
       @Override
@@ -177,13 +187,13 @@ public class OrientDbJobStore implements JobStore {
 
   @Override
   public void schedulerPaused() {
-    LOG.info("scheduler paused");
+    LOG.debug("scheduler paused");
     // No-op
   }
 
   @Override
   public void schedulerResumed() {
-    LOG.info("scheduler resumed");
+    LOG.debug("scheduler resumed");
   }
 
   @Override
@@ -711,7 +721,7 @@ public class OrientDbJobStore implements JobStore {
   @Override
   public List<OperableTrigger> acquireNextTriggers(final long noLaterThan, final int maxCount,
       final long timeWindow) throws JobPersistenceException {
-    LOG.info("Acquiring next triggers for {} ({}) maxcount {}, timeWindow {}", noLaterThan,
+    LOG.debug("Acquiring next triggers for {} ({}) maxcount {}, timeWindow {}", noLaterThan,
         new Date(noLaterThan), maxCount, timeWindow);
 
     return assembler.getOrientDbConnector().doInTransaction(LockProvider.LOCK_TRIGGER,
@@ -725,7 +735,7 @@ public class OrientDbJobStore implements JobStore {
 
   @Override
   public void releaseAcquiredTrigger(final OperableTrigger trigger) throws JobPersistenceException {
-    LOG.info("Releasing acquired trigger {}", trigger);
+    LOG.debug("Releasing acquired trigger {}", trigger);
     assembler.getOrientDbConnector().doInTransaction(LockProvider.LOCK_TRIGGER,
         new TransactionMethod<Void>() {
           @Override
@@ -740,7 +750,7 @@ public class OrientDbJobStore implements JobStore {
   @Override
   public List<TriggerFiredResult> triggersFired(final List<OperableTrigger> triggers)
       throws JobPersistenceException {
-    LOG.info("Triggers fired {}", triggers);
+    LOG.debug("Triggers fired {}", triggers);
     return assembler.getOrientDbConnector().doInTransaction(LockProvider.LOCK_TRIGGER,
         new TransactionMethod<List<TriggerFiredResult>>() {
           @Override
@@ -753,7 +763,7 @@ public class OrientDbJobStore implements JobStore {
   @Override
   public void triggeredJobComplete(final OperableTrigger trigger, final JobDetail job,
       final CompletedExecutionInstruction triggerInstCode) throws JobPersistenceException {
-    LOG.info("Triggered job complete {} for job {} with instruction {}", trigger, job,
+    LOG.debug("Triggered job complete {} for job {} with instruction {}", trigger, job,
         triggerInstCode);
     assembler.getOrientDbConnector().doInTransaction(LockProvider.LOCK_TRIGGER,
         new TransactionMethod<Void>() {
@@ -885,4 +895,10 @@ public class OrientDbJobStore implements JobStore {
   public void setExecutorService(ScheduledExecutorService executorService) {
     this.executorService = executorService;
   }
+
+  public void setExternalClassLoader(ClassLoader externalClassLoader) {
+    this.externalClassLoader = externalClassLoader;
+  }
+  
+  
 }

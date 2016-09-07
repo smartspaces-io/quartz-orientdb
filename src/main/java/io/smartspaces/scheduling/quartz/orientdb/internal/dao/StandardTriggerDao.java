@@ -123,8 +123,8 @@ public class StandardTriggerDao {
     List<ODocument> result =
         database.command(query).execute(state, noLaterThanDate, noEarlierThanDate);
 
-    if (LOG.isInfoEnabled()) {
-      LOG.info("Found {} triggers which are eligible to be run.", result.size());
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Found {} triggers which are eligible to be run.", result.size());
     }
 
     return result;
@@ -256,8 +256,8 @@ public class StandardTriggerDao {
   }
 
   public int replace(TriggerKey triggerKey, ODocument triggerUpdate) {
-    if (LOG.isInfoEnabled()) {
-      LOG.info("Replacing trigger {} triggers with data {} at {}", triggerKey, triggerUpdate,
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Replacing trigger {} triggers with data {} at {}", triggerKey, triggerUpdate,
           new Date());
     }
     int count = 0;

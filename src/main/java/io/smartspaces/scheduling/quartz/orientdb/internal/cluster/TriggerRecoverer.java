@@ -16,7 +16,7 @@ import io.smartspaces.scheduling.quartz.orientdb.internal.trigger.MisfireHandler
 
 public class TriggerRecoverer {
 
-  private static final Logger log = LoggerFactory.getLogger(TriggerRecoverer.class);
+  private static final Logger LOG = LoggerFactory.getLogger(TriggerRecoverer.class);
 
   private final TriggerAndJobPersister persister;
   private final StandardTriggerDao triggerDao;
@@ -75,7 +75,7 @@ public class TriggerRecoverer {
   }
 
   private OperableTrigger recoverTrigger(OperableTrigger trigger) throws JobPersistenceException {
-    log.info("Recovering trigger: {}", trigger.getKey());
+    LOG.debug("Recovering trigger: {}", trigger.getKey());
     OperableTrigger recoveryTrigger = recoveryTriggerFactory.from(trigger);
     persister.storeTrigger(recoveryTrigger, Constants.STATE_WAITING, false);
     return recoveryTrigger;
@@ -83,11 +83,11 @@ public class TriggerRecoverer {
 
   private void updateMisfires(OperableTrigger trigger) throws JobPersistenceException {
     if (misfireHandler.applyMisfireOnRecovery(trigger)) {
-      log.info("Misfire applied. Replacing trigger: {}", trigger.getKey());
+      LOG.debug("Misfire applied. Replacing trigger: {}", trigger.getKey());
       persister.storeTrigger(trigger, Constants.STATE_WAITING, true);
     } else {
       // TODO should complete trigger?
-      log.warn("Recovery misfire not applied for trigger: {}", trigger.getKey());
+      LOG.warn("Recovery misfire not applied for trigger: {}", trigger.getKey());
       // storeTrigger(conn, trig,
       // null, true, STATE_COMPLETE, forceState, recovering);
       // schedSignaler.notifySchedulerListenersFinalized(trig);

@@ -30,7 +30,7 @@ public class CheckinExecutor {
    * Start execution of CheckinTask.
    */
   public void start() {
-    log.info("Starting check-in task for scheduler instance: {}", instanceId);
+    log.debug("Starting check-in task for scheduler instance: {}", instanceId);
     executor.scheduleAtFixedRate(checkinTask, INITIAL_DELAY, checkinIntervalMillis, MILLISECONDS);
   }
 
@@ -38,7 +38,7 @@ public class CheckinExecutor {
    * Stop execution of CheckinTask.
    */
   public void shutdown() {
-    log.info("Stopping CheckinExecutor for scheduler instance: {}", instanceId);
+    log.debug("Stopping CheckinExecutor for scheduler instance: {}", instanceId);
     executor.shutdown();
   }
 }

@@ -291,11 +291,11 @@ public class StandardMisfireHandler implements MisfireHandler {
         getMisfireTime(), maxMisfiresToHandleAtATime, misfiredTriggers);
 
     if (hasMoreMisfiredTriggers) {
-      LOG.info("Handling the first " + misfiredTriggers.size()
+      LOG.debug("Handling the first " + misfiredTriggers.size()
           + " triggers that missed their scheduled fire-time.  "
           + "More misfired triggers remain to be processed.");
     } else if (misfiredTriggers.size() > 0) {
-      LOG.info("Handling " + misfiredTriggers.size()
+      LOG.debug("Handling " + misfiredTriggers.size()
           + " trigger(s) that missed their scheduled fire-time.");
     } else {
       LOG.debug("Found 0 triggers that missed their scheduled fire-time.");

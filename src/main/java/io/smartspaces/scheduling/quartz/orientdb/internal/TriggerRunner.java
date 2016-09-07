@@ -150,20 +150,20 @@ public class TriggerRunner {
       }
 
       if (prepareForFire(noLaterThanDate, trigger)) {
-        LOG.info("Prepared acquired trigger: {}", triggerKey);
+        LOG.debug("Prepared acquired trigger: {}", triggerKey);
         triggerDao.setState(triggerKey, Constants.STATE_ACQUIRED);
         triggers.put(triggerKey, trigger);
       } else {
-        LOG.info("Unable to prepare acquired trigger, unlocking: {}", triggerKey);
+        LOG.debug("Unable to prepare acquired trigger, unlocking: {}", triggerKey);
       }
       // TODO(keith): Sort out this recovery stuff
       // } else if (lockManager.relockExpired(triggerKey)) {
-      // log.info("Recovering trigger: {}", trigger.getKey());
+      // log.debug("Recovering trigger: {}", trigger.getKey());
       // OperableTrigger recoveryTrigger = recoverer.doRecovery(trigger);
       // lockManager.unlockAcquiredTrigger(trigger);
       // if (recoveryTrigger != null &&
       // lockManager.tryTriggerLock(recoveryTrigger.getKey())) {
-      // log.info("Acquired trigger: {}", recoveryTrigger.getKey());
+      // log.debug("Acquired trigger: {}", recoveryTrigger.getKey());
       // triggers.put(recoveryTrigger.getKey(), recoveryTrigger);
       // }
       // }
@@ -203,7 +203,7 @@ public class TriggerRunner {
     List<TriggerFiredResult> results = new ArrayList<TriggerFiredResult>(triggers.size());
 
     for (OperableTrigger trigger : triggers) {
-      LOG.info("Fired trigger {}", trigger);
+      LOG.debug("Fired trigger {}", trigger);
 
       TriggerFiredResult result = null;
 

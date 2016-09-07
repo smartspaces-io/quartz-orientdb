@@ -34,7 +34,7 @@ import io.smartspaces.scheduling.quartz.orientdb.internal.util.ExpiryCalculator;
 
 public class LockManager {
 
-  private static final Logger log = LoggerFactory.getLogger(LockManager.class);
+  private static final Logger LOG = LoggerFactory.getLogger(LockManager.class);
 
   private StandardLockDao locksDao;
   private ExpiryCalculator expiryCalculator;
@@ -74,7 +74,7 @@ public class LockManager {
     ODocument existingLock = locksDao.findJobLock(job.getKey());
     if (existingLock != null) {
       if (expiryCalculator.isJobLockExpired(existingLock)) {
-        log.debug("Removing expired lock for job {}", job.getKey());
+        LOG.debug("Removing expired lock for job {}", job.getKey());
         locksDao.remove(existingLock);
       }
     }
@@ -96,7 +96,7 @@ public class LockManager {
       locksDao.lockTrigger(triggerKey);
       return true;
     } catch (Exception e) {
-      log.info("Failed to lock trigger {}, reason: {}", triggerKey, e.getMessage());
+      LOG.debug("Failed to lock trigger {}, reason: {}", triggerKey, e.getMessage());
     }
     return false;
   }
@@ -118,15 +118,15 @@ public class LockManager {
         // evaluate its LOCK_TIME and try to reassign it to this scheduler.
         // Relock may not be successful when some other scheduler has
         // done it first.
-        log.info("Trigger lock {} is expired - re-locking", key);
+        LOG.debug("Trigger lock {} is expired - re-locking", key);
         Date existingLockDate = existingLock.field(Constants.LOCK_TIME);
         return locksDao.relock(key, existingLockDate);
       } else {
         Date lockTime = existingLock.field(Constants.LOCK_TIME);
-        log.info("Trigger lock {} hasn't expired yet. Lock time: {}", key, lockTime);
+        LOG.debug("Trigger lock {} hasn't expired yet. Lock time: {}", key, lockTime);
       }
     } else {
-      log.warn("Error retrieving expired lock from the database. Maybe it was deleted");
+      LOG.warn("Error retrieving expired lock from the database. Maybe it was deleted");
     }
     return false;
   }
