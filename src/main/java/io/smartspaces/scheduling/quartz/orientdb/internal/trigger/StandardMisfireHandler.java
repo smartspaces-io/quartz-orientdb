@@ -124,9 +124,6 @@ public class StandardMisfireHandler implements MisfireHandler {
     this.schedulerSignaler = schedulerSignaler;
   }
 
-  /* (non-Javadoc)
-   * @see io.smartspaces.scheduling.quartz.orientdb.internal.trigger.MisfireHandler#applyMisfireOnRecovery(org.quartz.spi.OperableTrigger)
-   */
   @Override
   public boolean applyMisfireOnRecovery(OperableTrigger trigger) throws JobPersistenceException {
     if (trigger.getMisfireInstruction() == Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY) {
@@ -145,9 +142,6 @@ public class StandardMisfireHandler implements MisfireHandler {
     return trigger.getNextFireTime() != null;
   }
 
-  /* (non-Javadoc)
-   * @see io.smartspaces.scheduling.quartz.orientdb.internal.trigger.MisfireHandler#applyMisfire(org.quartz.spi.OperableTrigger)
-   */
   @Override
   public boolean applyMisfire(OperableTrigger trigger) throws JobPersistenceException {
     Date fireTime = trigger.getNextFireTime();
@@ -169,9 +163,6 @@ public class StandardMisfireHandler implements MisfireHandler {
     return true;
   }
 
-  /* (non-Javadoc)
-   * @see io.smartspaces.scheduling.quartz.orientdb.internal.trigger.MisfireHandler#getMisfireTime()
-   */
   @Override
   public long getMisfireTime() {
     long misfireTime = clock.millis();
@@ -186,9 +177,6 @@ public class StandardMisfireHandler implements MisfireHandler {
     return maxToRecoverAtATime;
   }
 
-  /* (non-Javadoc)
-   * @see io.smartspaces.scheduling.quartz.orientdb.internal.trigger.MisfireHandler#scanForMisfires()
-   */
   @Override
   public void scanForMisfires() {
 
@@ -224,9 +212,6 @@ public class StandardMisfireHandler implements MisfireHandler {
     }
   }
 
-  /* (non-Javadoc)
-   * @see io.smartspaces.scheduling.quartz.orientdb.internal.trigger.MisfireHandler#shutdownScanForMisfires()
-   */
   @Override
   public void shutdownScanForMisfires() {
     shutdownMisfireScan = true;
@@ -271,11 +256,10 @@ public class StandardMisfireHandler implements MisfireHandler {
           public RecoverMisfiredJobsResult doInTransaction() throws JobPersistenceException {
             return recoverMisfiredJobs(false);
           }
-
         });
   }
 
-  protected RecoverMisfiredJobsResult recoverMisfiredJobs(boolean recovering)
+  private RecoverMisfiredJobsResult recoverMisfiredJobs(boolean recovering)
       throws JobPersistenceException {
 
     // If recovering, we want to handle all of the misfired
@@ -320,9 +304,6 @@ public class StandardMisfireHandler implements MisfireHandler {
         earliestNewTime);
   }
 
-  /* (non-Javadoc)
-   * @see io.smartspaces.scheduling.quartz.orientdb.internal.trigger.MisfireHandler#updateMisfiredTrigger(org.quartz.TriggerKey, java.lang.String, boolean)
-   */
   @Override
   public boolean updateMisfiredTrigger(TriggerKey triggerKey, String newStateIfNotComplete,
       boolean forceState) throws JobPersistenceException {

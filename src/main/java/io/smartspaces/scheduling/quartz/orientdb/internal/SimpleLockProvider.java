@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * A lock provider that does everything in memory.
@@ -40,56 +41,75 @@ public class SimpleLockProvider implements LockProvider {
   private ThreadLocal<Set<String>> threadLocksSource = new ThreadLocal<Set<String>>();
 
   /**
-   * The locks to own.
+   * The locks owned.
    */
-  private Set<String> locks = new HashSet<String>();
+  private Set<String> locks = new HashSet<>();
+
+  private ReentrantLock lock = new ReentrantLock(true);
 
   @Override
-  public synchronized boolean obtainLock(String lockName) throws LockException {
+  public boolean obtainLock(String lockName) throws LockException {
     String threadName = Thread.currentThread().getName();
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Thread {} is attempting to get lock {}", threadName, lockName);
-    }
 
-    if (!isLockOwner(lockName)) {
+    if (false) {
       if (LOG.isDebugEnabled()) {
-        LOG.debug("Thread {} is waiting for lock {}", threadName, lockName);
+        LOG.debug("Thread {} is attempting to get lock {}", threadName, lockName);
       }
-      while (locks.contains(lockName)) {
-        try {
-          this.wait();
-        } catch (InterruptedException ie) {
-          if (LOG.isDebugEnabled()) {
-            LOG.debug("Thread {} did not get lock {}", threadName, lockName);
+
+      if (!isLockOwner(lockName)) {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Thread {} is waiting for lock {}", threadName, lockName);
+        }
+        while (locks.contains(lockName)) {
+          try {
+            this.wait();
+          } catch (InterruptedException ie) {
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("Thread {} did not get lock {}", threadName, lockName);
+            }
           }
         }
-      }
 
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Thread {} got lock {}", threadName, lockName);
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Thread {} got lock {}", threadName, lockName);
+        }
+        getThreadLocks().add(lockName);
+        locks.add(lockName);
+      } else if (LOG.isDebugEnabled()) {
+        LOG.debug("Thread {} already owns lock {}", threadName, lockName);
       }
-      getThreadLocks().add(lockName);
-      locks.add(lockName);
-    } else if (LOG.isDebugEnabled()) {
-      LOG.debug("Thread {} already owns lock {}", threadName, lockName);
     }
+
+    LOG.debug("Thread {} is waiting for lock {}", threadName, lockName);
+    lock.lock();
+    LOG.debug("Thread {} has lock {}", threadName, lockName);
 
     return true;
   }
 
   @Override
-  public synchronized void releaseLock(String lockName) throws LockException {
+  public void releaseLock(String lockName) throws LockException {
     String threadName = Thread.currentThread().getName();
-    if (isLockOwner(lockName)) {
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Thread {} is returning lock {}", threadName, lockName);
+    if (false) {
+      if (isLockOwner(lockName)) {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Thread {} is returning lock {}", threadName, lockName);
+        }
+        getThreadLocks().remove(lockName);
+        locks.remove(lockName);
+        this.notifyAll();
+      } else if (LOG.isDebugEnabled()) {
+        LOG.debug("Thread {} is attempting to return lock {} but it doesn't own it", threadName,
+            lockName, new Exception("stack trace for bad return"));
       }
-      getThreadLocks().remove(lockName);
-      locks.remove(lockName);
-      this.notifyAll();
-    } else if (LOG.isDebugEnabled()) {
-      LOG.debug("Thread {} is attempting to return lock {} but it doesn't own it", threadName,
-          lockName, new Exception("stack trace for bad return"));
+    }
+
+    if (lock.isHeldByCurrentThread()) {
+      LOG.debug("Thread {} is returning lock {}", threadName, lockName);
+      lock.unlock();
+      LOG.debug("Thread {} has returned lock {}", threadName, lockName);
+    } else {
+      LOG.warn("Lock being released by thread that doesn't have it");
     }
   }
 
