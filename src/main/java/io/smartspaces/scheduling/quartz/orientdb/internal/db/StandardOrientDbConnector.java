@@ -31,7 +31,6 @@ import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.metadata.security.OSecurity;
 import com.orientechnologies.orient.core.metadata.security.OUser;
 import com.orientechnologies.orient.core.tx.OTransaction;
-import com.orientechnologies.orient.core.tx.OTransaction.TXTYPE;
 import org.quartz.JobPersistenceException;
 import org.quartz.SchedulerConfigException;
 import org.slf4j.Logger;
@@ -135,6 +134,7 @@ public class StandardOrientDbConnector implements OrientDbConnector {
         releaseLock(lockRequired, lockOwner);
       } finally {
         documentProvider.remove();
+        db.close();
       }
     }
   }

@@ -14,16 +14,19 @@ apply plugin: 'eclipse'
 //apply plugin: 'groovy'
 
 repositories {
-    mavenLocal()
-    jcenter()
-    mavenCentral()
+  mavenLocal()
+  jcenter()
+  mavenCentral()
+  maven {
+   url "https://repos.inhabitech.com:8082/repository/smartspaces-io"
+  }
 }
 
 sourceCompatibility = 1.7
 targetCompatibility = 1.7
 
-group='smartspaces'
-version =  '1.0.0-alpha2-SNAPSHOT'
+group='io.smartspaces'
+version =  '1.0.0-SNAPSHOT'
 
 dependencies {
   compile('org.apache.servicemix.bundles:org.apache.servicemix.bundles.quartz:2.1.7_1') {
@@ -64,14 +67,28 @@ jar {
       '!io.smartspaces.scheduling.quartz.orientdb.internal.*',
       'io.smartspaces.scheduling.quartz.orientdb.*'
 		  
-	instruction 'Private-Package',
+    instruction 'Private-Package',
       'io.smartspaces.scheduling.quartz.orientdb.internal.*'
 
-	instruction 'Import-Package',
+    instruction 'Import-Package',
       '*'
   }
 }
-  
+
+uploadArchives {
+    repositories {
+        mavenDeployer {
+            repository(url: "${nexusUrl}/repository/smartspaces-io-release/") {
+                authentication(userName: nexusUsername, password: nexusPassword)
+	    }
+            snapshotRepository(url: "${nexusUrl}/repository/smartspaces-io-snapshot/") {
+                authentication(userName: nexusUsername, password: nexusPassword)
+	    }
+	}
+    }
+}
+
+
 task wrapper(type: Wrapper) {
-    gradleVersion = '2.14'
+    gradleVersion = '3.2.1'
 }
