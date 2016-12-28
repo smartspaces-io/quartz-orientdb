@@ -158,6 +158,17 @@ public class StandardTriggerDao {
     return (String) doc.field(Constants.TRIGGER_STATE);
   }
 
+  /**
+   * Get a trigger based on the trigger key.
+   * 
+   * @param triggerKey
+   *          the trigger key
+   * 
+   * @return the trigger for the key, or {@code null} if no such trigger
+   * 
+   * @throws JobPersistenceException
+   *           something bad happened
+   */
   public OperableTrigger getTrigger(TriggerKey triggerKey) throws JobPersistenceException {
     ODocument doc = findTrigger(triggerKey);
     if (doc != null) {
@@ -167,11 +178,22 @@ public class StandardTriggerDao {
     }
   }
 
-  public List<OperableTrigger> getTriggersForJob(ODocument doc) throws JobPersistenceException {
-    final List<OperableTrigger> triggers = new LinkedList<OperableTrigger>();
-    if (doc != null) {
-      for (ODocument item : findByJobId(doc.getIdentity())) {
-        triggers.add(triggerConverter.toTrigger(item));
+  /**
+   * Get all triggers for a given job.
+   * 
+   * @param jobDoc
+   *          the OrientDB document for the job, can be {@code null}
+   * 
+   * @return a list of the triggers for the job
+   * 
+   * @throws JobPersistenceException
+   *           something bad happened
+   */
+  public List<OperableTrigger> getTriggersForJob(ODocument jobDoc) throws JobPersistenceException {
+    List<OperableTrigger> triggers = new LinkedList<OperableTrigger>();
+    if (jobDoc != null) {
+      for (ODocument triggerDoc : findByJobId(jobDoc.getIdentity())) {
+        triggers.add(triggerConverter.toTrigger(triggerDoc));
       }
     }
     return triggers;

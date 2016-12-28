@@ -61,6 +61,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 
 /**
@@ -93,8 +94,14 @@ public class OrientDbJobStore implements JobStore {
    */
   private long dbRetryInterval = 15000L; // 15 secs
 
+  /**
+   * The clock to use for timing events.
+   */
   private Clock clock = Clock.SYSTEM_CLOCK;
 
+  /**
+   * The executor service to use for threads.
+   */
   private ScheduledExecutorService executorService = Executors.newScheduledThreadPool(4);
 
   /**
@@ -103,11 +110,26 @@ public class OrientDbJobStore implements JobStore {
   private StandardOrientDbStoreAssembler assembler = new StandardOrientDbStoreAssembler();
 
   /**
+   * The future for controlling the misfire handler.
+   */
+  private Future<?> misfireFuture;
+
+  /**
    * Construct a job store.
    */
   public OrientDbJobStore() {
   }
 
+  /**
+   * Construct a job store.
+   * 
+   * @param orientdbUri
+   *          the URI for the OrientDB database
+   * @param username
+   *          the user name for the database
+   * @param password
+   *          the password for the database
+   */
   public OrientDbJobStore(String orientdbUri, String username, String password) {
     this.orientDbUri = orientdbUri;
     this.username = username;
@@ -178,7 +200,7 @@ public class OrientDbJobStore implements JobStore {
   public void schedulerStarted() throws SchedulerException {
     LOG.debug("scheduler started");
 
-    executorService.execute(new Runnable() {
+    misfireFuture = executorService.submit(new Runnable() {
       @Override
       public void run() {
         Thread.currentThread().setName("Quartz-Misfire");
@@ -310,16 +332,14 @@ public class OrientDbJobStore implements JobStore {
     LOG.debug("Store trigger {} with replace", newTrigger, replaceExisting);
     String lockRequired = replaceExisting ? LockProvider.LOCK_TRIGGER : null;
     lockRequired = LockProvider.LOCK_TRIGGER;
-    assembler.getOrientDbConnector().doInTransaction(
-        lockRequired, new TransactionMethod<Void>() {
-          @Override
-          public Void doInTransaction() throws JobPersistenceException {
-            assembler.getPersister().storeTrigger(newTrigger, Constants.STATE_WAITING,
-                replaceExisting);
+    assembler.getOrientDbConnector().doInTransaction(lockRequired, new TransactionMethod<Void>() {
+      @Override
+      public Void doInTransaction() throws JobPersistenceException {
+        assembler.getPersister().storeTrigger(newTrigger, Constants.STATE_WAITING, replaceExisting);
 
-            return null;
-          }
-        });
+        return null;
+      }
+    });
   }
 
   @Override

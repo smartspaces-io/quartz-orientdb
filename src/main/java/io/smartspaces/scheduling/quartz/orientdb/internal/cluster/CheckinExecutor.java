@@ -1,12 +1,13 @@
 package io.smartspaces.scheduling.quartz.orientdb.internal.cluster;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
-
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class CheckinExecutor {
 
@@ -18,9 +19,15 @@ public class CheckinExecutor {
   private final long checkinIntervalMillis;
   private final String instanceId;
 
-  private ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
+  private ScheduledExecutorService executor;
 
-  public CheckinExecutor(CheckinTask checkinTask, long checkinIntervalMillis, String instanceId) {
+  /**
+   * The future for the checkin task.
+   */
+  private Future<?> checkinFuture;
+
+  public CheckinExecutor(ScheduledExecutorService executor, CheckinTask checkinTask, long checkinIntervalMillis, String instanceId) {
+    this.executor = executor;
     this.checkinTask = checkinTask;
     this.checkinIntervalMillis = checkinIntervalMillis;
     this.instanceId = instanceId;
@@ -31,7 +38,7 @@ public class CheckinExecutor {
    */
   public void start() {
     log.debug("Starting check-in task for scheduler instance: {}", instanceId);
-    executor.scheduleAtFixedRate(checkinTask, INITIAL_DELAY, checkinIntervalMillis, MILLISECONDS);
+    checkinFuture = executor.scheduleAtFixedRate(checkinTask, INITIAL_DELAY, checkinIntervalMillis, MILLISECONDS);
   }
 
   /**
@@ -39,6 +46,6 @@ public class CheckinExecutor {
    */
   public void shutdown() {
     log.debug("Stopping CheckinExecutor for scheduler instance: {}", instanceId);
-    executor.shutdown();
+    checkinFuture.cancel(true);
   }
 }
