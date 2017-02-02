@@ -26,7 +26,11 @@ sourceCompatibility = 1.7
 targetCompatibility = 1.7
 
 group='io.smartspaces'
-version =  '0.2.0-SNAPSHOT'
+version =  '0.3.0-SNAPSHOT'
+
+ext {
+	osgiVersion = "0.3.0.SNAPSHOT"
+}
 
 dependencies {
   compile('org.apache.servicemix.bundles:org.apache.servicemix.bundles.quartz:2.1.7_1') {
@@ -37,9 +41,9 @@ dependencies {
   compile("org.apache.commons:com.springsource.org.apache.commons.codec:1.4.0")
   compile("org.slf4j:slf4j-api:1.7.10")
 
-  compile('com.orientechnologies:orientdb-core:2.2.7')	
-  compile('com.orientechnologies:orientdb-client:2.2.7')	
-  compile('com.orientechnologies:orientdb-server:2.2.7') {
+  compile('com.orientechnologies:orientdb-core:2.2.15')	
+  compile('com.orientechnologies:orientdb-client:2.2.15')	
+  compile('com.orientechnologies:orientdb-server:2.2.15') {
     exclude group: 'javax.mail', module: 'mail'
     transitive = false
   }	
@@ -63,6 +67,9 @@ jar {
   baseName = 'quartz-orientdb'
 
   manifest {
+	version = osgiVersion
+	symbolicName = 'quartz.orientdb'
+	
     instruction 'Export-Package',
       '!io.smartspaces.scheduling.quartz.orientdb.internal.*',
       'io.smartspaces.scheduling.quartz.orientdb.*'
@@ -90,5 +97,5 @@ uploadArchives {
 
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '3.2.1'
+    gradleVersion = '3.3'
 }
