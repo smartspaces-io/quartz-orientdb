@@ -4,9 +4,13 @@ buildscript {
     }
 }
 
+plugins {
+    id 'idea'
+    id 'biz.aQute.bnd.builder'  version "4.2.0"
+}
+
 apply plugin: 'java'
 apply plugin: 'maven'
-apply plugin: 'osgi'
 apply plugin: 'idea'
 apply plugin: 'eclipse'
 
@@ -18,7 +22,7 @@ repositories {
   jcenter()
   mavenCentral()
   maven {
-   url "https://repos.inhabitech.com:8082/repository/smartspaces-io"
+   url "https://repos.inhabitech.com:8084/repository/smartspaces-io"
   }
 }
 
@@ -26,10 +30,10 @@ sourceCompatibility = 1.7
 targetCompatibility = 1.7
 
 group='io.smartspaces'
-version =  '0.3.0-SNAPSHOT'
+version =  '0.4.0-SNAPSHOT'
 
 ext {
-	osgiVersion = "0.3.0.SNAPSHOT"
+	osgiVersion = "0.4.0.SNAPSHOT"
 }
 
 dependencies {
@@ -41,9 +45,9 @@ dependencies {
   compile("org.apache.commons:com.springsource.org.apache.commons.codec:1.4.0")
   compile("org.slf4j:slf4j-api:1.7.10")
 
-  compile('com.orientechnologies:orientdb-core:2.2.18')	
-  compile('com.orientechnologies:orientdb-client:2.2.18')	
-  compile('com.orientechnologies:orientdb-server:2.2.18') {
+  compile('com.orientechnologies:orientdb-core:3.0.20')	
+  compile('com.orientechnologies:orientdb-client:3.0.20')	
+  compile('com.orientechnologies:orientdb-server:3.0.20') {
     exclude group: 'javax.mail', module: 'mail'
     transitive = false
   }	
@@ -66,20 +70,17 @@ artifacts {
 jar {
   baseName = 'quartz-orientdb'
 
-  manifest {
-	version = osgiVersion
-	symbolicName = 'quartz.orientdb'
+  bnd """
+    Bundle-SymbolicName: quartz.orientdb
+    Bundle-Version: ${osgiVersion}
 	
-    instruction 'Export-Package',
-      '!io.smartspaces.scheduling.quartz.orientdb.internal.*',
-      'io.smartspaces.scheduling.quartz.orientdb.*'
+    Export-Package: !io.smartspaces.scheduling.quartz.orientdb.internal.*, \\
+                    io.smartspaces.scheduling.quartz.orientdb.*
 		  
-    instruction 'Private-Package',
-      'io.smartspaces.scheduling.quartz.orientdb.internal.*'
+    Private-Package: io.smartspaces.scheduling.quartz.orientdb.internal.*
 
-    instruction 'Import-Package',
-      '*'
-  }
+    Import-Package: *
+  """
 }
 
 uploadArchives {
@@ -93,9 +94,4 @@ uploadArchives {
 	    }
 	}
     }
-}
-
-
-task wrapper(type: Wrapper) {
-    gradleVersion = '4.5.1'
 }
